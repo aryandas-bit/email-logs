@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Log Sheet</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f8f9fa;
+    min-height: 100vh;
+    padding: 32px 20px;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 28px;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; }
+  .header p { font-size: 14px; color: #888; margin-top: 4px; }
+
+  .btn-extract {
+    padding: 10px 20px; border-radius: 8px; border: none;
+    background: #ccc; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: not-allowed; display: flex; align-items: center; gap: 6px;
+    transition: background 0.2s;
+  }
+  .btn-extract.active {
+    background: #2e7d32; cursor: pointer;
+  }
+  .btn-extract.active:hover { background: #1b5e20; }
+
+  /* Input Row */
+  .input-row {
+    display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .input-row input {
+    flex: 1; min-width: 180px; padding: 10px 14px; border-radius: 8px;
+    border: 1.5px solid #ddd; font-size: 14px; outline: none; transition: border 0.2s;
+  }
+  .input-row input:focus { border-color: #4a90d9; }
+  .input-row select {
+    padding: 10px 14px; border-radius: 8px; border: 1.5px solid #ddd;
+    font-size: 14px; background: #fff; cursor: pointer; outline: none;
+  }
+  .btn-add {
+    padding: 10px 22px; border-radius: 8px; border: none;
+    background: #4a90d9; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-add:hover { background: #3a7bc8; }
+
+  /* Table */
+  .table-wrap {
+    background: #fff; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+  .table-header {
+    display: grid; grid-template-columns: 60px 1.2fr 1.5fr 1fr 50px;
+    padding: 12px 18px; background: #f1f3f5; font-weight: 700;
+    font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .empty-state {
+    padding: 40px 18px; text-align: center; color: #aaa; font-size: 14px;
+  }
+  .table-row {
+    display: grid; grid-template-columns: 60px 1.2fr 1.5fr 1fr 50px;
+    padding: 12px 18px; align-items: center; border-top: 1px solid #f0f0f0;
+    font-size: 14px; transition: background 0.15s;
+  }
+  .table-row:hover { background: #fafbfc; }
+  .row-num { color: #999; font-weight: 600; }
+  .row-ticket { font-weight: 600; color: #1a1a2e; font-family: monospace; font-size: 13px; }
+  .row-time { color: #666; font-size: 13px; }
+
+  /* Status badges */
+  .status-badge {
+    padding: 4px 10px; border-radius: 14px; font-size: 12px;
+    font-weight: 600; cursor: pointer; outline: none;
+  }
+  .status-resolved { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; }
+  .status-onhold { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
+
+  /* Remove button */
+  .btn-remove {
+    background: none; border: none; color: #ccc; font-size: 18px;
+    cursor: pointer; transition: color 0.2s;
+  }
+  .btn-remove:hover { color: #e74c3c; }
+
+  /* Footer */
+  .table-footer {
+    padding: 10px 18px; background: #f9fafb; border-top: 1px solid #f0f0f0;
+    font-size: 13px; color: #888; display: flex; justify-content: space-between;
+  }
+  .table-footer b { color: #333; }
+  .count-resolved { color: #2e7d32; }
+  .count-onhold { color: #e65100; }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>Email Log Sheet</h1>
+      <p>Track ticket IDs with timestamps and status</p>
+    </div>
+    <button class="btn-extract" id="extractBtn" onclick="extractCSV()">
+      <span style="font-size:16px">⬇</span> Extract CSV
+    </button>
+  </div>
+
+  <!-- Input Row -->
+  <div class="input-row">
+    <input type="text" id="ticketInput" placeholder="Enter Ticket ID..." onkeydown="if(event.key==='Enter')addEntry()">
+    <select id="statusSelect">
+      <option value="Resolved">Resolved</option>
+      <option value="On Hold">On Hold</option>
+    </select>
+    <button class="btn-add" onclick="addEntry()">+ Log Entry</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <span>#</span><span>Ticket ID</span><span>Timestamp</span><span>Status</span><span></span>
+    </div>
+    <div id="tableBody">
+      <div class="empty-state">No entries yet. Share your ticket IDs to get started.</div>
+    </div>
+    <div id="tableFooter" style="display:none" class="table-footer">
+      <span>Total entries: <b id="totalCount">0</b></span>
+      <span>Resolved: <b class="count-resolved" id="resolvedCount">0</b> · On Hold: <b class="count-onhold" id="onholdCount">0</b></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  let entries = [];
+
+  function addEntry() {
+    const input = document.getElementById('ticketInput');
+    const select = document.getElementById('statusSelect');
+    const tid = input.value.trim();
+    if (!tid) return;
+
+    const now = new Date();
+    const ts = now.toLocaleString('en-IN', {
+      year: 'numeric', month: 'short', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+    });
+
+    entries.push({ id: Date.now(), ticketId: tid, timestamp: ts, status: select.value });
+    input.value = '';
+    select.value = 'Resolved';
+    render();
+  }
+
+  function updateStatus(id, newStatus) {
+    const e = entries.find(x => x.id === id);
+    if (e) e.status = newStatus;
+    render();
+  }
+
+  function removeEntry(id) {
+    entries = entries.filter(x => x.id !== id);
+    render();
+  }
+
+  function render() {
+    const body = document.getElementById('tableBody');
+    const footer = document.getElementById('tableFooter');
+    const extractBtn = document.getElementById('extractBtn');
+
+    if (entries.length === 0) {
+      body.innerHTML = '<div class="empty-state">No entries yet. Share your ticket IDs to get started.</div>';
+      footer.style.display = 'none';
+      extractBtn.classList.remove('active');
+      extractBtn.style.cursor = 'not-allowed';
+      return;
+    }
+
+    extractBtn.classList.add('active');
+    extractBtn.style.cursor = 'pointer';
+
+    let html = '';
+    entries.forEach((e, i) => {
+      const cls = e.status === 'Resolved' ? 'status-resolved' : 'status-onhold';
+      html += `
+        <div class="table-row">
+          <span class="row-num">${i + 1}</span>
+          <span class="row-ticket">${e.ticketId}</span>
+          <span class="row-time">${e.timestamp}</span>
+          <span>
+            <select class="status-badge ${cls}" onchange="updateStatus(${e.id}, this.value)">
+              <option value="Resolved" ${e.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+              <option value="On Hold" ${e.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
+            </select>
+          </span>
+          <span><button class="btn-remove" onclick="removeEntry(${e.id})" title="Remove">×</button></span>
+        </div>`;
+    });
+    body.innerHTML = html;
+
+    footer.style.display = 'flex';
+    document.getElementById('totalCount').textContent = entries.length;
+    document.getElementById('resolvedCount').textContent = entries.filter(e => e.status === 'Resolved').length;
+    document.getElementById('onholdCount').textContent = entries.filter(e => e.status === 'On Hold').length;
+  }
+
+  function extractCSV() {
+    if (entries.length === 0) return;
+    const header = 'Sr No,Ticket ID,Timestamp,Status';
+    const rows = entries.map((e, i) => `${i + 1},"${e.ticketId}","${e.timestamp}","${e.status}"`);
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `email_log_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>
