@@ -150,7 +150,28 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  let entries = [];
+  let entries = JSON.parse(localStorage.getItem('yl_entries') || '[]');
+
+  function save() {
+    localStorage.setItem('yl_entries', JSON.stringify(entries));
+  }
+
+  // Handle entry passed via URL params (from bookmarklet)
+  (function () {
+    const p = new URLSearchParams(location.search);
+    const ticket = p.get('ticket');
+    const status = p.get('status');
+    if (ticket && status) {
+      const ts = new Date().toLocaleString('en-IN', {
+        year: 'numeric', month: 'short', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+      });
+      entries.push({ id: Date.now(), ticketId: ticket, timestamp: ts, status });
+      save();
+      // Clean URL without reloading
+      history.replaceState(null, '', location.pathname);
+    }
+  })();
 
   function showToast(msg, color) {
     const t = document.getElementById('toast');
@@ -185,6 +206,7 @@
     });
 
     entries.push({ id: Date.now(), ticketId: label, timestamp: ts, status });
+    save();
     render();
 
     const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
@@ -194,11 +216,13 @@
   function updateStatus(id, newStatus) {
     const e = entries.find(x => x.id === id);
     if (e) e.status = newStatus;
+    save();
     render();
   }
 
   function removeEntry(id) {
     entries = entries.filter(x => x.id !== id);
+    save();
     render();
   }
 
