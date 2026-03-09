@@ -48,8 +48,8 @@
   function logEntry(status) {
     const ticketId = getTicketInfo();
     const entry = { id: Date.now(), ticketId, timestamp: makeTimestamp(), status };
-    // Send to bridge.js (isolated world) via CustomEvent
-    window.dispatchEvent(new CustomEvent('yl-log-entry', { detail: entry }));
+    // Send to bridge.js (isolated world) via postMessage
+    window.postMessage({ type: 'yl-log-entry', entry: entry }, '*');
     const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
     showToast((status === 'Resolved' ? '✓' : '⏸') + ' Logged as ' + status + ': ' + ticketId, color);
     console.log('[YL-Logger] Logged:', status, ticketId);
