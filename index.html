@@ -150,11 +150,12 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  let entries = JSON.parse(localStorage.getItem('yl_entries') || '[]');
+  var entries = JSON.parse(localStorage.getItem('yl_entries') || '[]');
 
   function save() {
     localStorage.setItem('yl_entries', JSON.stringify(entries));
   }
+  window.save = save;
 
   // Handle entry passed via URL params (from bookmarklet)
   (function () {
