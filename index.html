@@ -168,8 +168,13 @@
       });
       entries.push({ id: Date.now(), ticketId: ticket, timestamp: ts, status });
       save();
-      // Clean URL without reloading
       history.replaceState(null, '', location.pathname);
+      // Auto-close this tab after showing confirmation
+      window.addEventListener('load', function () {
+        const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
+        showToast('Logged as ' + status + ': ' + ticket, color);
+        setTimeout(() => window.close(), 1500);
+      });
     }
   })();
 
