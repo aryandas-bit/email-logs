@@ -30,6 +30,8 @@
   }
   .btn-export.active { background: #2e7d32; cursor: pointer; }
   .btn-export.active:hover { background: #1b5e20; }
+  .btn-clear { padding: 9px 18px; border-radius: 8px; border: none; background: #fee2e2; color: #dc2626; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-clear:hover { background: #fca5a5; }
 
   /* Summary cards */
   .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -91,7 +93,10 @@
         <span id="connStatus">Connecting…</span>
       </div>
     </div>
-    <button class="btn-export" id="exportBtn" onclick="extractCSV()">⬇ Export CSV</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-export" id="exportBtn" onclick="extractCSV()">⬇ Export CSV</button>
+      <button class="btn-clear" onclick="clearAllData()">🗑 Clear All</button>
+    </div>
   </div>
 
   <div class="summary" id="summary" style="display:none">
@@ -260,6 +265,13 @@ function renderAll(data) {
 function toggleSlot(key) {
   document.getElementById('srep-'  + key).classList.toggle('open');
   document.getElementById('schev-' + key).classList.toggle('open');
+}
+
+function clearAllData() {
+  if (!confirm('Delete ALL entries from Firebase? This cannot be undone.')) return;
+  fetch(FIREBASE_URL + '/entries.json', { method: 'DELETE' })
+    .then(() => { allData = {}; renderAll({}); })
+    .catch(() => alert('Delete failed — check Firebase connection.'));
 }
 
 // ── Real-time Firebase SSE ──
