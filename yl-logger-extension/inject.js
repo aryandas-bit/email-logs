@@ -24,53 +24,50 @@
     return 'Ticket-' + Date.now();
   }
 
-  function extractEmail(str, agentOnly) {
+  function extractUltraEmail(str) {
     if (!str) return null;
-    const s = String(str);
-    // If agentOnly, only match @ultrahuman.com addresses
-    const pattern = agentOnly
-      ? /[\w.+\-]+@ultrahuman\.com/i
-      : /[\w.+\-]+@[\w.\-]+\.[a-z]{2,}/i;
-    const m = s.match(pattern);
-    return m ? m[0] : null;
+    const m = String(str).match(/[\w.+\-]+@ultrahuman\.com/i);
+    return m ? m[0].toLowerCase() : null;
+  }
+
+  function sniffEmail(text) {
+    if (agentEmail) return;
+    const e = extractUltraEmail(text);
+    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected:', e); }
   }
 
   function detectAgentEmail() {
     if (agentEmail) return agentEmail;
 
-    // 1. Window globals — look for @ultrahuman.com first
+    // 1. Window globals
     const globals = ['__userData', 'userData', 'user', 'currentUser', 'agentProfile', '__agent', 'YellowAI', 'ylUser'];
     for (const g of globals) {
       try {
         const obj = window[g];
         if (!obj) continue;
-        const str = JSON.stringify(obj);
-        const e = extractEmail(obj.email, true) || extractEmail(obj.emailId, true) || extractEmail(str, true);
-        if (e) { agentEmail = e; return agentEmail; }
+        sniffEmail(JSON.stringify(obj));
+        if (agentEmail) return agentEmail;
       } catch (_) {}
     }
 
-    // 2. localStorage — only match @ultrahuman.com
+    // 2. localStorage
     try {
       for (let i = 0; i < localStorage.length; i++) {
-        const val = localStorage.getItem(localStorage.key(i));
-        const e = extractEmail(val, true);
-        if (e) { agentEmail = e; return agentEmail; }
+        sniffEmail(localStorage.getItem(localStorage.key(i)));
+        if (agentEmail) return agentEmail;
       }
     } catch (_) {}
 
-    // 3. Cookies — only match @ultrahuman.com
-    try {
-      const e = extractEmail(document.cookie, true);
-      if (e) { agentEmail = e; return agentEmail; }
-    } catch (_) {}
+    // 3. Cookies
+    try { sniffEmail(document.cookie); } catch (_) {}
+    if (agentEmail) return agentEmail;
 
-    // 4. DOM scan — only match @ultrahuman.com
+    // 4. Full DOM scan
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
-      const e = extractEmail(node.nodeValue, true);
-      if (e) { agentEmail = e; return agentEmail; }
+      sniffEmail(node.nodeValue);
+      if (agentEmail) return agentEmail;
     }
 
     return null;
@@ -103,44 +100,42 @@
     const entry = { id: Date.now(), ticketId, timestamp: makeTimestamp(), status, agentEmail: agent };
     window.postMessage({ type: 'yl-log-entry', entry }, '*');
     const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
-    showToast((status === 'Resolved' ? '✓' : '⏸') + ' Logged as ' + status + ': ' + ticketId, color);
+    showToast((status === 'Resolved' ? '✓' : '⏸') + ' Logged: ' + ticketId + ' · ' + agent.split('@')[0], color);
     console.log('[YL-Logger] Logged:', status, ticketId, '| agent:', agent);
   }
 
-  // ── Intercept fetch ──
+  // ── Intercept fetch — sniff email from ALL responses ──
   const _fetch = window.fetch;
   window.fetch = async function (...args) {
-    const req = args[0];
+    const req  = args[0];
     const opts = args[1] || {};
-    const url = typeof req === 'string' ? req : (req.url || '');
+    const url    = typeof req === 'string' ? req : (req.url || '');
     const method = (opts.method || (req && req.method) || 'GET').toUpperCase();
 
-    // Sniff agent email from profile/user API responses
-    if (!agentEmail && /\/(user|agent|profile|me)\b/.test(url)) {
+    const res = await _fetch.apply(this, args);
+
+    // Sniff agent email from any response
+    if (!agentEmail) {
       try {
-        const res = await _fetch.apply(this, args);
-        res.clone().text().then(text => {
-          const m = text.match(/"email"\s*:\s*"([\w.+\-]+@ultrahuman\.com)"/i);
-          if (m) agentEmail = m[1];
-        }).catch(() => {});
-        // Still check for status changes in this response path
-        return res;
-      } catch (e) {}
+        res.clone().text().then(sniffEmail).catch(() => {});
+      } catch (_) {}
     }
 
+    // Detect status changes in mutating requests
     if (['POST', 'PUT', 'PATCH'].includes(method)) {
       try {
         let body = '';
         if (opts.body) body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
         const combined = (url + ' ' + body).toLowerCase();
-        if (/resolv/.test(combined) || combined.includes('"status":"resolved"')) {
+        if (/resolv|"status"\s*:\s*"resolved"/i.test(combined)) {
           setTimeout(() => logEntry('Resolved'), 400);
-        } else if (/on.?hold|onhold|"status":"hold"/.test(combined)) {
+        } else if (/on.?hold|onhold|"status"\s*:\s*"hold"/i.test(combined)) {
           setTimeout(() => logEntry('On Hold'), 400);
         }
-      } catch (e) {}
+      } catch (_) {}
     }
-    return _fetch.apply(this, args);
+
+    return res;
   };
 
   // ── Intercept XHR ──
@@ -153,12 +148,18 @@
   };
 
   XMLHttpRequest.prototype.send = function (body) {
+    // Sniff email from XHR response too
+    if (!agentEmail) {
+      this.addEventListener('load', function () {
+        try { sniffEmail(this.responseText); } catch (_) {}
+      });
+    }
     if (['POST', 'PUT', 'PATCH'].includes((this._ylMethod || '').toUpperCase())) {
       try {
         const combined = ((this._ylUrl || '') + ' ' + (body || '')).toLowerCase();
         if (/resolv/.test(combined)) setTimeout(() => logEntry('Resolved'), 400);
         else if (/on.?hold|onhold/.test(combined)) setTimeout(() => logEntry('On Hold'), 400);
-      } catch (e) {}
+      } catch (_) {}
     }
     return _send.apply(this, arguments);
   };
