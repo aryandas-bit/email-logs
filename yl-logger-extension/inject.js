@@ -13,16 +13,23 @@
     });
   }
 
-  function getTicketInfo() {
-    const urlMatch = location.pathname.match(/\/(\d+)$/);
+  function getTicketInfo(apiUrl) {
+    // 1. Extract ticket number from the triggering API URL (most reliable)
+    if (apiUrl) {
+      const m = apiUrl.match(/\/tickets?\/(\d+)/i) || apiUrl.match(/[?&]ticketId=(\d+)/i) || apiUrl.match(/\/(\d{3,})/);
+      if (m) return m[1];
+    }
+    // 2. Current page URL
+    const urlMatch = location.pathname.match(/\/(\d+)(?:\/|$|\?)/);
     if (urlMatch) return urlMatch[1];
+    // 3. DOM scan for visible ticket number (look for # patterns)
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
-      const m = node.nodeValue.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
-      if (m) return m[0];
+      const m = node.nodeValue.match(/#(\d{3,})\b/) || node.nodeValue.match(/\bticket[:\s#]*(\d{3,})/i);
+      if (m) return m[1];
     }
-    return 'Ticket-' + Date.now();
+    return null; // Don't log if we can't identify the ticket
   }
 
   function extractUltraEmail(str) {
@@ -95,8 +102,9 @@
     t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
   }
 
-  function logEntry(status) {
-    const ticketId = getTicketInfo();
+  function logEntry(status, apiUrl) {
+    const ticketId = getTicketInfo(apiUrl);
+    if (!ticketId) { console.log('[YL-Logger] Skipped: could not identify ticket ID'); return; }
     const key = ticketId + '|' + status;
     const now = Date.now();
     // Suppress duplicate fires within 15 seconds for the same ticket+status
@@ -134,9 +142,9 @@
         if (opts.body) body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
         const combined = (url + ' ' + body).toLowerCase();
         if (/resolv|"status"\s*:\s*"resolved"/i.test(combined)) {
-          setTimeout(() => logEntry('Resolved'), 400);
+          setTimeout(() => logEntry('Resolved', url), 400);
         } else if (/on.?hold|onhold|"status"\s*:\s*"hold"/i.test(combined)) {
-          setTimeout(() => logEntry('On Hold'), 400);
+          setTimeout(() => logEntry('On Hold', url), 400);
         }
       } catch (_) {}
     }
@@ -163,8 +171,8 @@
     if (['POST', 'PUT', 'PATCH'].includes((this._ylMethod || '').toUpperCase())) {
       try {
         const combined = ((this._ylUrl || '') + ' ' + (body || '')).toLowerCase();
-        if (/resolv/.test(combined)) setTimeout(() => logEntry('Resolved'), 400);
-        else if (/on.?hold|onhold/.test(combined)) setTimeout(() => logEntry('On Hold'), 400);
+        if (/resolv/.test(combined)) setTimeout(() => logEntry('Resolved', this._ylUrl), 400);
+        else if (/on.?hold|onhold/.test(combined)) setTimeout(() => logEntry('On Hold', this._ylUrl), 400);
       } catch (_) {}
     }
     return _send.apply(this, arguments);
