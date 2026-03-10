@@ -83,13 +83,13 @@
   /* Detail panel */
   .lb-detail { display: none; border-top: 1px solid #f0f0f0; }
   .lb-detail.open { display: block; }
-  .tbl-header { display: grid; grid-template-columns: 40px 1fr 1.4fr 1fr; padding: 8px 20px; background: #f9fafb; font-size: 11px; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; }
-  .tbl-row { display: grid; grid-template-columns: 40px 1fr 1.4fr 1fr; padding: 10px 20px; border-top: 1px solid #f8f8f8; font-size: 13px; align-items: center; animation: fadeIn 0.35s ease; }
+  .time-group-header { padding: 8px 20px 4px; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.6px; background: #f9fafb; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; }
+  .time-group-header .tg-count { font-size: 11px; font-weight: 600; color: #ccc; }
+  .tbl-row { display: grid; grid-template-columns: 40px 1fr 1fr; padding: 10px 20px; border-top: 1px solid #f8f8f8; font-size: 13px; align-items: center; animation: fadeIn 0.35s ease; }
   @keyframes fadeIn { from { background: #f0fff4; } to { background: transparent; } }
   .tbl-row:hover { background: #fafbfc; }
   .row-num { color: #ccc; font-size: 12px; font-weight: 600; }
   .row-ticket { font-family: monospace; font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row-time { color: #bbb; font-size: 12px; }
   .status-pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
   .status-resolved { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; }
   .status-onhold   { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
@@ -136,6 +136,48 @@ const COLORS = ['#5c6bc0','#26a69a','#ef5350','#ab47bc','#42a5f5','#66bb6a','#ff
 function avatarColor(key) { let h = 0; for (const c of key) h = (h * 31 + c.charCodeAt(0)) & 0xffffff; return COLORS[Math.abs(h) % COLORS.length]; }
 function initials(email) { const n = (email||'?').split('@')[0].split(/[._\-]/); return n.length >= 2 ? (n[0][0]+n[1][0]).toUpperCase() : (email||'?').slice(0,2).toUpperCase(); }
 function displayName(email) { return (email||'unknown').split('@')[0].split(/[._]/).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
+
+function hourSlot(timestamp) {
+  // Parse timestamps like "10 Mar 2026, 07:45:32 PM" → "7–8 PM"
+  try {
+    const d = new Date(timestamp);
+    if (!isNaN(d)) {
+      let h = d.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      const h12end = (h + 1) % 12 || 12;
+      const ampmEnd = (h + 1) >= 12 && (h + 1) < 24 ? 'PM' : (h + 1 >= 24 ? 'AM' : ampm);
+      return `${h12}–${h12end} ${ampmEnd}`;
+    }
+  } catch (_) {}
+  return 'Other';
+}
+
+function groupByHour(entries) {
+  const groups = {};
+  entries.forEach(e => {
+    const slot = hourSlot(e.timestamp);
+    if (!groups[slot]) groups[slot] = [];
+    groups[slot].push(e);
+  });
+  return groups;
+}
+
+function renderDetail(entries) {
+  const groups = groupByHour(entries);
+  let rowNum = 0;
+  return Object.entries(groups).map(([slot, items]) => {
+    const rows = items.map(e => {
+      rowNum++;
+      return `<div class="tbl-row">
+        <span class="row-num">${rowNum}</span>
+        <span class="row-ticket" title="${e.ticketId}">${e.ticketId}</span>
+        <span class="status-pill ${e.status === 'Resolved' ? 'status-resolved' : 'status-onhold'}">${e.status}</span>
+      </div>`;
+    }).join('');
+    return `<div class="time-group-header">${slot}<span class="tg-count">${items.length}</span></div>${rows}`;
+  }).join('');
+}
 
 function renderAll(data) {
   allData = data || {};
@@ -196,14 +238,7 @@ function renderAll(data) {
         </div>
         <div class="lb-bar-wrap"><div class="lb-bar" style="width:${barPct}%;background:${color}"></div></div>
         <div class="lb-detail ${isOpen ? 'open' : ''}" id="det-${a.key}" data-key="${a.key}">
-          <div class="tbl-header"><span>#</span><span>Ticket</span><span>Timestamp</span><span>Status</span></div>
-          ${a.entries.map((e, j) => `
-            <div class="tbl-row">
-              <span class="row-num">${j + 1}</span>
-              <span class="row-ticket" title="${e.ticketId}">${e.ticketId}</span>
-              <span class="row-time">${e.timestamp}</span>
-              <span class="status-pill ${e.status === 'Resolved' ? 'status-resolved' : 'status-onhold'}">${e.status}</span>
-            </div>`).join('')}
+          ${renderDetail(a.entries)}
         </div>
       </div>`;
   }).join('');
