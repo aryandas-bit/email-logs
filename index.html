@@ -12,9 +12,8 @@
     min-height: 100vh;
     padding: 32px 20px;
   }
-  .container { max-width: 880px; margin: 0 auto; }
+  .container { max-width: 620px; margin: 0 auto; }
 
-  /* Header */
   .header {
     display: flex; justify-content: space-between; align-items: flex-start;
     flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
@@ -25,55 +24,73 @@
   .conn-dot.live { background: #2e7d32; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-  .btn-extract {
-    padding: 10px 20px; border-radius: 8px; border: none;
-    background: #ccc; color: #fff; font-size: 14px; font-weight: 600;
-    cursor: not-allowed; display: flex; align-items: center; gap: 6px;
+  .btn-export {
+    padding: 9px 18px; border-radius: 8px; border: none;
+    background: #ccc; color: #fff; font-size: 13px; font-weight: 600;
+    cursor: not-allowed;
   }
-  .btn-extract.active { background: #2e7d32; cursor: pointer; }
-  .btn-extract.active:hover { background: #1b5e20; }
+  .btn-export.active { background: #2e7d32; cursor: pointer; }
+  .btn-export.active:hover { background: #1b5e20; }
 
-  /* Summary cards */
-  .summary { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
-  .card { background: #fff; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); flex: 1; min-width: 110px; }
-  .card .label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
-  .card .value { font-size: 28px; font-weight: 700; color: #1a1a2e; margin-top: 6px; line-height: 1; }
+  /* Summary */
+  .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .card { background: #fff; border-radius: 10px; padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); flex: 1; min-width: 100px; }
+  .card .label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .card .value { font-size: 26px; font-weight: 700; color: #1a1a2e; margin-top: 4px; line-height: 1; }
   .card .value.green { color: #2e7d32; }
   .card .value.orange { color: #e65100; }
   .card .value.blue { color: #1565c0; }
 
-  /* Agent section */
-  .agent-section { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }
-  .agent-header {
-    display: flex; justify-content: space-between; align-items: center;
-    background: #fff; padding: 14px 18px;
-    cursor: pointer; user-select: none;
-    border-bottom: 1px solid #f0f0f0;
-  }
-  .agent-header:hover { background: #fafbfc; }
-  .agent-left { display: flex; align-items: center; gap: 12px; }
-  .avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 13px; }
-  .agent-name { font-weight: 600; font-size: 15px; color: #1a1a2e; }
-  .agent-email { font-size: 12px; color: #999; margin-top: 1px; }
-  .agent-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-  .badge-total    { background: #e8eaf6; color: #3949ab; }
-  .badge-resolved { background: #e8f5e9; color: #2e7d32; }
-  .badge-onhold   { background: #fff3e0; color: #e65100; }
-  .chevron { color: #bbb; font-size: 11px; margin-left: 4px; transition: transform 0.2s; }
-  .chevron.open { transform: rotate(180deg); }
+  /* Leaderboard */
+  .leaderboard { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); overflow: hidden; }
 
-  /* Table */
-  .agent-table { background: #fff; }
-  .agent-table.collapsed { display: none; }
-  .tbl-header { display: grid; grid-template-columns: 46px 1.4fr 1.5fr 1fr; padding: 9px 18px; background: #f9fafb; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
-  .tbl-row { display: grid; grid-template-columns: 46px 1.4fr 1.5fr 1fr; padding: 11px 18px; border-top: 1px solid #f5f5f5; font-size: 13px; align-items: center; animation: fadeIn 0.4s ease; }
+  .lb-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 20px; border-bottom: 1px solid #f5f5f5;
+    cursor: pointer; transition: background 0.15s;
+    user-select: none;
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-row:hover { background: #fafbfc; }
+
+  .lb-rank { width: 28px; font-size: 15px; font-weight: 700; color: #ccc; text-align: center; flex-shrink: 0; }
+  .lb-rank.top { color: #f5a623; }
+
+  .lb-avatar {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: #fff; font-size: 13px;
+  }
+
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-name { font-size: 15px; font-weight: 600; color: #1a1a2e; }
+  .lb-email { font-size: 12px; color: #aaa; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .lb-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .lb-count { font-size: 22px; font-weight: 700; color: #1a1a2e; min-width: 28px; text-align: right; }
+  .lb-sub { font-size: 11px; color: #bbb; text-align: right; line-height: 1.4; }
+  .lb-sub span { display: block; }
+  .lb-sub .res { color: #2e7d32; }
+  .lb-sub .hld { color: #e65100; }
+
+  .lb-chevron { color: #ccc; font-size: 11px; transition: transform 0.2s; flex-shrink: 0; }
+  .lb-chevron.open { transform: rotate(180deg); }
+
+  /* Bar */
+  .lb-bar-wrap { height: 3px; background: #f0f0f0; margin: 0 20px; }
+  .lb-bar { height: 3px; border-radius: 2px; transition: width 0.4s ease; }
+
+  /* Detail panel */
+  .lb-detail { display: none; border-top: 1px solid #f0f0f0; }
+  .lb-detail.open { display: block; }
+  .tbl-header { display: grid; grid-template-columns: 40px 1fr 1.4fr 1fr; padding: 8px 20px; background: #f9fafb; font-size: 11px; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tbl-row { display: grid; grid-template-columns: 40px 1fr 1.4fr 1fr; padding: 10px 20px; border-top: 1px solid #f8f8f8; font-size: 13px; align-items: center; animation: fadeIn 0.35s ease; }
   @keyframes fadeIn { from { background: #f0fff4; } to { background: transparent; } }
   .tbl-row:hover { background: #fafbfc; }
-  .row-num { color: #ccc; font-weight: 600; font-size: 12px; }
+  .row-num { color: #ccc; font-size: 12px; font-weight: 600; }
   .row-ticket { font-family: monospace; font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row-time { color: #aaa; font-size: 12px; }
-  .status-pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .row-time { color: #bbb; font-size: 12px; }
+  .status-pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
   .status-resolved { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; }
   .status-onhold   { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
 
@@ -92,9 +109,7 @@
         <span id="connStatus">Connecting…</span>
       </div>
     </div>
-    <button class="btn-extract" id="extractBtn" onclick="extractCSV()">
-      <span style="font-size:15px">⬇</span> Export CSV
-    </button>
+    <button class="btn-export" id="exportBtn" onclick="extractCSV()">⬇ Export CSV</button>
   </div>
 
   <div class="summary" id="summary" style="display:none">
@@ -104,7 +119,7 @@
     <div class="card"><div class="label">On Hold</div><div class="value orange" id="cOnHold">0</div></div>
   </div>
 
-  <div id="agentsContainer">
+  <div id="board">
     <div class="empty-overall">
       <strong style="font-size:18px;color:#ddd">No entries yet</strong>
       <p>Entries appear here instantly as agents log tickets on Yellow.ai</p>
@@ -113,7 +128,6 @@
 
 </div>
 <script>
-// ── SET YOUR FIREBASE URL HERE ──
 const FIREBASE_URL = 'https://yl-logs-default-rtdb.firebaseio.com';
 
 let allData = {};
@@ -125,66 +139,67 @@ function displayName(email) { return (email||'unknown').split('@')[0].split(/[._
 
 function renderAll(data) {
   allData = data || {};
-  const container = document.getElementById('agentsContainer');
+  const board = document.getElementById('board');
   const agentKeys = Object.keys(allData);
 
   if (agentKeys.length === 0) {
-    container.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No entries yet</strong><p>Entries appear here instantly as agents log tickets on Yellow.ai</p></div>`;
+    board.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No entries yet</strong><p>Entries appear here instantly as agents log tickets on Yellow.ai</p></div>`;
     document.getElementById('summary').style.display = 'none';
-    document.getElementById('extractBtn').classList.remove('active');
+    document.getElementById('exportBtn').classList.remove('active');
     return;
   }
 
   document.getElementById('summary').style.display = 'flex';
-  document.getElementById('extractBtn').classList.add('active');
+  document.getElementById('exportBtn').classList.add('active');
 
-  // Preserve open/collapsed state
-  const openState = {};
-  container.querySelectorAll('.agent-section').forEach(sec => {
-    openState[sec.dataset.key] = !sec.querySelector('.agent-table').classList.contains('collapsed');
-  });
+  // Preserve open detail panels
+  const openPanels = new Set();
+  board.querySelectorAll('.lb-detail.open').forEach(el => openPanels.add(el.dataset.key));
 
-  // Sort: most recent entry first
-  const sorted = agentKeys.slice().sort((a, b) => {
-    const la = Math.max(...Object.keys(allData[a]).map(Number));
-    const lb = Math.max(...Object.keys(allData[b]).map(Number));
-    return lb - la;
-  });
-
-  let totalTickets = 0, totalResolved = 0, totalOnHold = 0;
-
-  const html = sorted.map(agentKey => {
-    const entries = Object.values(allData[agentKey]).sort((a, b) => b.id - a.id);
-    const email    = entries[0]?.agentEmail || agentKey;
+  // Build agent list sorted by ticket count desc
+  const agents = agentKeys.map(key => {
+    const entries = Object.values(allData[key]).sort((a, b) => b.id - a.id);
+    const email    = entries[0]?.agentEmail || key;
     const resolved = entries.filter(e => e.status === 'Resolved').length;
     const onhold   = entries.filter(e => e.status === 'On Hold').length;
-    totalTickets  += entries.length;
-    totalResolved += resolved;
-    totalOnHold   += onhold;
-    const isOpen = openState[agentKey] !== false;
+    return { key, email, entries, resolved, onhold, total: entries.length };
+  }).sort((a, b) => b.total - a.total);
+
+  const maxCount = agents[0]?.total || 1;
+  let totalTickets = 0, totalResolved = 0, totalOnHold = 0;
+  agents.forEach(a => { totalTickets += a.total; totalResolved += a.resolved; totalOnHold += a.onhold; });
+
+  const rows = agents.map((a, i) => {
+    const isOpen = openPanels.has(a.key);
+    const barPct = Math.round((a.total / maxCount) * 100);
+    const color  = avatarColor(a.key);
 
     return `
-      <div class="agent-section" data-key="${agentKey}">
-        <div class="agent-header" onclick="toggle('${agentKey}')">
-          <div class="agent-left">
-            <div class="avatar" style="background:${avatarColor(agentKey)}">${initials(email)}</div>
-            <div>
-              <div class="agent-name">${displayName(email)}</div>
-              <div class="agent-email">${email}</div>
-            </div>
+      <div>
+        <div class="lb-row" onclick="toggle('${a.key}')">
+          <div class="lb-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
+          <div class="lb-avatar" style="background:${color}">${initials(a.email)}</div>
+          <div class="lb-info">
+            <div class="lb-name">${displayName(a.email)}</div>
+            <div class="lb-email">${a.email}</div>
           </div>
-          <div class="agent-right">
-            <span class="badge badge-total">${entries.length} total</span>
-            <span class="badge badge-resolved">${resolved} resolved</span>
-            <span class="badge badge-onhold">${onhold} on hold</span>
-            <span class="chevron ${isOpen ? 'open' : ''}" id="chev-${agentKey}">▼</span>
+          <div class="lb-right">
+            <div>
+              <div class="lb-count">${a.total}</div>
+              <div class="lb-sub">
+                <span class="res">${a.resolved} resolved</span>
+                <span class="hld">${a.onhold} on hold</span>
+              </div>
+            </div>
+            <span class="lb-chevron ${isOpen ? 'open' : ''}" id="chev-${a.key}">▼</span>
           </div>
         </div>
-        <div class="agent-table ${isOpen ? '' : 'collapsed'}" id="tbl-${agentKey}">
+        <div class="lb-bar-wrap"><div class="lb-bar" style="width:${barPct}%;background:${color}"></div></div>
+        <div class="lb-detail ${isOpen ? 'open' : ''}" id="det-${a.key}" data-key="${a.key}">
           <div class="tbl-header"><span>#</span><span>Ticket</span><span>Timestamp</span><span>Status</span></div>
-          ${entries.map((e, i) => `
+          ${a.entries.map((e, j) => `
             <div class="tbl-row">
-              <span class="row-num">${i + 1}</span>
+              <span class="row-num">${j + 1}</span>
               <span class="row-ticket" title="${e.ticketId}">${e.ticketId}</span>
               <span class="row-time">${e.timestamp}</span>
               <span class="status-pill ${e.status === 'Resolved' ? 'status-resolved' : 'status-onhold'}">${e.status}</span>
@@ -193,16 +208,18 @@ function renderAll(data) {
       </div>`;
   }).join('');
 
-  container.innerHTML = html;
-  document.getElementById('cAgents').textContent   = agentKeys.length;
+  board.innerHTML = `<div class="leaderboard">${rows}</div>`;
+  document.getElementById('cAgents').textContent   = agents.length;
   document.getElementById('cTotal').textContent    = totalTickets;
   document.getElementById('cResolved').textContent = totalResolved;
   document.getElementById('cOnHold').textContent   = totalOnHold;
 }
 
 function toggle(key) {
-  document.getElementById('tbl-'  + key).classList.toggle('collapsed');
-  document.getElementById('chev-' + key).classList.toggle('open');
+  const det  = document.getElementById('det-'  + key);
+  const chev = document.getElementById('chev-' + key);
+  det.classList.toggle('open');
+  chev.classList.toggle('open');
 }
 
 // ── Real-time Firebase SSE ──
@@ -245,21 +262,19 @@ function connect() {
 
 connect();
 
-// ── CSV export ──
 function extractCSV() {
   if (!Object.keys(allData).length) return;
-  const rows = [['Agent Name','Email','Sr No','Ticket','Timestamp','Status']];
-  for (const agentKey of Object.keys(allData)) {
-    const entries = Object.values(allData[agentKey]).sort((a, b) => a.id - b.id);
-    const email = entries[0]?.agentEmail || agentKey;
-    entries.forEach((e, i) => {
-      rows.push([displayName(email), email, i + 1, e.ticketId, e.timestamp, e.status]);
-    });
-  }
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const rows = [['Rank','Agent Name','Email','Total','Resolved','On Hold']];
+  const agents = Object.keys(allData).map(key => {
+    const entries = Object.values(allData[key]);
+    const email   = entries[0]?.agentEmail || key;
+    return { email, total: entries.length, resolved: entries.filter(e=>e.status==='Resolved').length, onhold: entries.filter(e=>e.status==='On Hold').length };
+  }).sort((a,b) => b.total - a.total);
+  agents.forEach((a, i) => rows.push([i+1, displayName(a.email), a.email, a.total, a.resolved, a.onhold]));
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-  a.download = `team_log_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `team_log_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 }
 </script>
