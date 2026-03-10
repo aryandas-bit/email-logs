@@ -26,73 +26,51 @@
 
   .btn-export {
     padding: 9px 18px; border-radius: 8px; border: none;
-    background: #ccc; color: #fff; font-size: 13px; font-weight: 600;
-    cursor: not-allowed;
+    background: #ccc; color: #fff; font-size: 13px; font-weight: 600; cursor: not-allowed;
   }
   .btn-export.active { background: #2e7d32; cursor: pointer; }
   .btn-export.active:hover { background: #1b5e20; }
 
-  /* Summary */
+  /* Summary cards */
   .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
   .card { background: #fff; border-radius: 10px; padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); flex: 1; min-width: 100px; }
   .card .label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-  .card .value { font-size: 26px; font-weight: 700; color: #1a1a2e; margin-top: 4px; line-height: 1; }
+  .card .value { font-size: 26px; font-weight: 700; color: #1a1a2e; margin-top: 4px; }
   .card .value.green { color: #2e7d32; }
   .card .value.orange { color: #e65100; }
   .card .value.blue { color: #1565c0; }
 
-  /* Leaderboard */
-  .leaderboard { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); overflow: hidden; }
+  /* Slot card */
+  .slot-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 14px; overflow: hidden; }
 
-  .lb-row {
-    display: flex; align-items: center; gap: 14px;
-    padding: 14px 20px; border-bottom: 1px solid #f5f5f5;
-    cursor: pointer; transition: background 0.15s;
-    user-select: none;
-  }
-  .lb-row:last-child { border-bottom: none; }
-  .lb-row:hover { background: #fafbfc; }
+  .slot-header { padding: 16px 20px; cursor: pointer; user-select: none; }
+  .slot-header:hover { background: #fafbfc; }
 
-  .lb-rank { width: 28px; font-size: 15px; font-weight: 700; color: #ccc; text-align: center; flex-shrink: 0; }
-  .lb-rank.top { color: #f5a623; }
+  .slot-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .slot-time { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+  .slot-pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 10px; background: #e8f5e9; color: #2e7d32; }
+  .slot-pill.hold { background: #fff3e0; color: #e65100; }
 
-  .lb-avatar {
-    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; color: #fff; font-size: 13px;
-  }
+  .slot-meta { font-size: 12px; color: #aaa; margin-top: 5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .slot-open-btn { font-size: 12px; color: #5c6bc0; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .slot-chevron { font-size: 10px; transition: transform 0.2s; display: inline-block; }
+  .slot-chevron.open { transform: rotate(180deg); }
 
-  .lb-info { flex: 1; min-width: 0; }
-  .lb-name { font-size: 15px; font-weight: 600; color: #1a1a2e; }
-  .lb-email { font-size: 12px; color: #aaa; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Agent list inside slot */
+  .slot-report { display: none; border-top: 1px solid #f0f0f0; }
+  .slot-report.open { display: block; }
 
-  .lb-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .lb-count { font-size: 22px; font-weight: 700; color: #1a1a2e; min-width: 28px; text-align: right; }
-  .lb-sub { font-size: 11px; color: #bbb; text-align: right; line-height: 1.4; }
-  .lb-sub span { display: block; }
-  .lb-sub .res { color: #2e7d32; }
-  .lb-sub .hld { color: #e65100; }
-
-  .lb-chevron { color: #ccc; font-size: 11px; transition: transform 0.2s; flex-shrink: 0; }
-  .lb-chevron.open { transform: rotate(180deg); }
-
-  /* Bar */
-  .lb-bar-wrap { height: 3px; background: #f0f0f0; margin: 0 20px; }
-  .lb-bar { height: 3px; border-radius: 2px; transition: width 0.4s ease; }
-
-  /* Detail panel */
-  .lb-detail { display: none; border-top: 1px solid #f0f0f0; }
-  .lb-detail.open { display: block; }
-  .time-group-header { padding: 8px 20px 4px; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.6px; background: #f9fafb; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; }
-  .time-group-header .tg-count { font-size: 11px; font-weight: 600; color: #ccc; }
-  .tbl-row { display: grid; grid-template-columns: 40px 1fr 1fr; padding: 10px 20px; border-top: 1px solid #f8f8f8; font-size: 13px; align-items: center; animation: fadeIn 0.35s ease; }
+  .agent-row { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; animation: fadeIn 0.3s ease; }
+  .agent-row:last-child { border-bottom: none; }
   @keyframes fadeIn { from { background: #f0fff4; } to { background: transparent; } }
-  .tbl-row:hover { background: #fafbfc; }
-  .row-num { color: #ccc; font-size: 12px; font-weight: 600; }
-  .row-ticket { font-family: monospace; font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .status-pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
-  .status-resolved { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; }
-  .status-onhold   { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
+
+  .ag-rank { font-size: 14px; font-weight: 700; color: #ccc; width: 22px; text-align: center; flex-shrink: 0; }
+  .ag-rank.top { color: #f5a623; }
+  .ag-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .ag-name { flex: 1; font-size: 14px; font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ag-count { font-size: 20px; font-weight: 700; color: #1a1a2e; flex-shrink: 0; min-width: 28px; text-align: right; }
+  .ag-bar-wrap { width: 80px; height: 4px; background: #f0f0f0; border-radius: 2px; flex-shrink: 0; }
+  .ag-bar { height: 4px; border-radius: 2px; transition: width 0.4s; }
 
   .empty-overall { text-align: center; padding: 60px 20px; background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); color: #ccc; }
   .empty-overall p { margin-top: 8px; font-size: 14px; }
@@ -135,56 +113,49 @@ let allData = {};
 const COLORS = ['#5c6bc0','#26a69a','#ef5350','#ab47bc','#42a5f5','#66bb6a','#ffa726','#ec407a'];
 function avatarColor(key) { let h = 0; for (const c of key) h = (h * 31 + c.charCodeAt(0)) & 0xffffff; return COLORS[Math.abs(h) % COLORS.length]; }
 function initials(email) { const n = (email||'?').split('@')[0].split(/[._\-]/); return n.length >= 2 ? (n[0][0]+n[1][0]).toUpperCase() : (email||'?').slice(0,2).toUpperCase(); }
-function displayName(email) { return (email||'unknown').split('@')[0].split(/[._]/).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
+function displayName(email) {
+  const local = (email||'unknown').split('@')[0];
+  // Strip trailing _ext or similar suffixes
+  const clean = local.replace(/_ext$/i, '').replace(/[_\.]/g, ' ');
+  return clean.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
 
-function hourSlot(timestamp) {
-  // Parse timestamps like "10 Mar 2026, 07:45:32 PM" → "7–8 PM"
+// Returns { sortKey, label, dateStr, startStr, endStr } for a timestamp
+function slotMeta(timestamp) {
   try {
     const d = new Date(timestamp);
     if (!isNaN(d)) {
-      let h = d.getHours();
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const h12 = h % 12 || 12;
-      const h12end = (h + 1) % 12 || 12;
-      const ampmEnd = (h + 1) >= 12 && (h + 1) < 24 ? 'PM' : (h + 1 >= 24 ? 'AM' : ampm);
-      return `${h12}–${h12end} ${ampmEnd}`;
+      const h = d.getHours();
+      const h12s = h % 12 || 12;
+      const h12e = (h + 1) % 12 || 12;
+      const ampmS = h < 12 ? 'AM' : 'PM';
+      const ampmE = (h + 1) < 12 ? 'AM' : 'PM';
+      const label = `${h12s}–${h12e} ${ampmE}`;
+      const pad = n => String(n).padStart(2,'0');
+      const dateStr = d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+      const startStr = `${pad(h)}:00 ${ampmS}`;
+      const endStr   = `${pad((h+1)%24)}:00 ${ampmE}`;
+      // sortKey: descending by date+hour
+      const sortKey = `${d.getFullYear()}${pad(d.getMonth())}${pad(d.getDate())}${pad(h)}`;
+      return { sortKey, label, dateStr, startStr, endStr };
     }
   } catch (_) {}
-  return 'Other';
-}
-
-function groupByHour(entries) {
-  const groups = {};
-  entries.forEach(e => {
-    const slot = hourSlot(e.timestamp);
-    if (!groups[slot]) groups[slot] = [];
-    groups[slot].push(e);
-  });
-  return groups;
-}
-
-function renderDetail(entries) {
-  const groups = groupByHour(entries);
-  let rowNum = 0;
-  return Object.entries(groups).map(([slot, items]) => {
-    const rows = items.map(e => {
-      rowNum++;
-      return `<div class="tbl-row">
-        <span class="row-num">${rowNum}</span>
-        <span class="row-ticket" title="${e.ticketId}">${e.ticketId}</span>
-        <span class="status-pill ${e.status === 'Resolved' ? 'status-resolved' : 'status-onhold'}">${e.status}</span>
-      </div>`;
-    }).join('');
-    return `<div class="time-group-header">${slot}<span class="tg-count">${items.length}</span></div>${rows}`;
-  }).join('');
+  return { sortKey: '0', label: 'Other', dateStr: '', startStr: '', endStr: '' };
 }
 
 function renderAll(data) {
   allData = data || {};
   const board = document.getElementById('board');
-  const agentKeys = Object.keys(allData);
 
-  if (agentKeys.length === 0) {
+  // Flatten all entries
+  const allEntries = [];
+  for (const agentKey of Object.keys(allData)) {
+    for (const entry of Object.values(allData[agentKey])) {
+      allEntries.push({ ...entry, _agentKey: agentKey });
+    }
+  }
+
+  if (allEntries.length === 0) {
     board.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No entries yet</strong><p>Entries appear here instantly as agents log tickets on Yellow.ai</p></div>`;
     document.getElementById('summary').style.display = 'none';
     document.getElementById('exportBtn').classList.remove('active');
@@ -194,67 +165,88 @@ function renderAll(data) {
   document.getElementById('summary').style.display = 'flex';
   document.getElementById('exportBtn').classList.add('active');
 
-  // Preserve open detail panels
-  const openPanels = new Set();
-  board.querySelectorAll('.lb-detail.open').forEach(el => openPanels.add(el.dataset.key));
+  // Preserve open panels
+  const openSlots = new Set();
+  board.querySelectorAll('.slot-report.open').forEach(el => openSlots.add(el.dataset.slot));
 
-  // Build agent list sorted by ticket count desc
-  const agents = agentKeys.map(key => {
-    const entries = Object.values(allData[key]).sort((a, b) => b.id - a.id);
-    const email    = entries[0]?.agentEmail || key;
+  // Group by slot
+  const slots = {};
+  for (const entry of allEntries) {
+    const meta = slotMeta(entry.timestamp);
+    if (!slots[meta.sortKey]) slots[meta.sortKey] = { meta, entries: [] };
+    slots[meta.sortKey].entries.push(entry);
+  }
+
+  // Sort slots newest first
+  const sortedSlotKeys = Object.keys(slots).sort((a, b) => b.localeCompare(a));
+
+  // Summary
+  const agentKeys = Object.keys(allData);
+  const totalTickets  = allEntries.length;
+  const totalResolved = allEntries.filter(e => e.status === 'Resolved').length;
+  const totalOnHold   = allEntries.filter(e => e.status === 'On Hold').length;
+  document.getElementById('cAgents').textContent   = agentKeys.length;
+  document.getElementById('cTotal').textContent    = totalTickets;
+  document.getElementById('cResolved').textContent = totalResolved;
+  document.getElementById('cOnHold').textContent   = totalOnHold;
+
+  const html = sortedSlotKeys.map(slotKey => {
+    const { meta, entries } = slots[slotKey];
+    const isOpen = openSlots.has(slotKey);
     const resolved = entries.filter(e => e.status === 'Resolved').length;
     const onhold   = entries.filter(e => e.status === 'On Hold').length;
-    return { key, email, entries, resolved, onhold, total: entries.length };
-  }).sort((a, b) => b.total - a.total);
 
-  const maxCount = agents[0]?.total || 1;
-  let totalTickets = 0, totalResolved = 0, totalOnHold = 0;
-  agents.forEach(a => { totalTickets += a.total; totalResolved += a.resolved; totalOnHold += a.onhold; });
+    // Build per-agent counts for this slot
+    const agentMap = {};
+    for (const entry of entries) {
+      const email = entry.agentEmail || entry._agentKey;
+      const key   = entry._agentKey;
+      if (!agentMap[key]) agentMap[key] = { email, key, count: 0 };
+      agentMap[key].count++;
+    }
+    const agents = Object.values(agentMap).sort((a, b) => b.count - a.count);
+    const maxCount = agents[0]?.count || 1;
 
-  const rows = agents.map((a, i) => {
-    const isOpen = openPanels.has(a.key);
-    const barPct = Math.round((a.total / maxCount) * 100);
-    const color  = avatarColor(a.key);
+    const agentRows = agents.map((a, i) => {
+      const barPct = Math.round((a.count / maxCount) * 100);
+      const color  = avatarColor(a.key);
+      return `
+        <div class="agent-row">
+          <div class="ag-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
+          <div class="ag-avatar" style="background:${color}">${initials(a.email)}</div>
+          <div class="ag-name" title="${a.email}">${displayName(a.email)}</div>
+          <div class="ag-bar-wrap"><div class="ag-bar" style="width:${barPct}%;background:${color}"></div></div>
+          <div class="ag-count">${a.count}</div>
+        </div>`;
+    }).join('');
 
     return `
-      <div>
-        <div class="lb-row" onclick="toggle('${a.key}')">
-          <div class="lb-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
-          <div class="lb-avatar" style="background:${color}">${initials(a.email)}</div>
-          <div class="lb-info">
-            <div class="lb-name">${displayName(a.email)}</div>
-            <div class="lb-email">${a.email}</div>
+      <div class="slot-card">
+        <div class="slot-header" onclick="toggleSlot('${slotKey}')">
+          <div class="slot-title">
+            <span class="slot-time">${meta.label}</span>
+            ${resolved ? `<span class="slot-pill">${resolved} resolved</span>` : ''}
+            ${onhold   ? `<span class="slot-pill hold">${onhold} on hold</span>` : ''}
           </div>
-          <div class="lb-right">
-            <div>
-              <div class="lb-count">${a.total}</div>
-              <div class="lb-sub">
-                <span class="res">${a.resolved} resolved</span>
-                <span class="hld">${a.onhold} on hold</span>
-              </div>
-            </div>
-            <span class="lb-chevron ${isOpen ? 'open' : ''}" id="chev-${a.key}">▼</span>
+          <div class="slot-meta">
+            <span>${meta.dateStr}${meta.startStr ? `, ${meta.startStr} → ${meta.endStr} IST` : ''}</span>
+            <span class="slot-open-btn">
+              Open report <span class="slot-chevron ${isOpen ? 'open' : ''}" id="schev-${slotKey}">▼</span>
+            </span>
           </div>
         </div>
-        <div class="lb-bar-wrap"><div class="lb-bar" style="width:${barPct}%;background:${color}"></div></div>
-        <div class="lb-detail ${isOpen ? 'open' : ''}" id="det-${a.key}" data-key="${a.key}">
-          ${renderDetail(a.entries)}
+        <div class="slot-report ${isOpen ? 'open' : ''}" id="srep-${slotKey}" data-slot="${slotKey}">
+          ${agentRows}
         </div>
       </div>`;
   }).join('');
 
-  board.innerHTML = `<div class="leaderboard">${rows}</div>`;
-  document.getElementById('cAgents').textContent   = agents.length;
-  document.getElementById('cTotal').textContent    = totalTickets;
-  document.getElementById('cResolved').textContent = totalResolved;
-  document.getElementById('cOnHold').textContent   = totalOnHold;
+  board.innerHTML = html;
 }
 
-function toggle(key) {
-  const det  = document.getElementById('det-'  + key);
-  const chev = document.getElementById('chev-' + key);
-  det.classList.toggle('open');
-  chev.classList.toggle('open');
+function toggleSlot(key) {
+  document.getElementById('srep-'  + key).classList.toggle('open');
+  document.getElementById('schev-' + key).classList.toggle('open');
 }
 
 // ── Real-time Firebase SSE ──
@@ -299,13 +291,14 @@ connect();
 
 function extractCSV() {
   if (!Object.keys(allData).length) return;
-  const rows = [['Rank','Agent Name','Email','Total','Resolved','On Hold']];
-  const agents = Object.keys(allData).map(key => {
-    const entries = Object.values(allData[key]);
-    const email   = entries[0]?.agentEmail || key;
-    return { email, total: entries.length, resolved: entries.filter(e=>e.status==='Resolved').length, onhold: entries.filter(e=>e.status==='On Hold').length };
-  }).sort((a,b) => b.total - a.total);
-  agents.forEach((a, i) => rows.push([i+1, displayName(a.email), a.email, a.total, a.resolved, a.onhold]));
+  const rows = [['Time Slot','Date','Agent','Email','Ticket','Status','Timestamp']];
+  const allEntries = [];
+  for (const agentKey of Object.keys(allData)) {
+    for (const entry of Object.values(allData[agentKey])) {
+      const meta = slotMeta(entry.timestamp);
+      rows.push([meta.label, meta.dateStr, displayName(entry.agentEmail||agentKey), entry.agentEmail||agentKey, entry.ticketId, entry.status, entry.timestamp]);
+    }
+  }
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
