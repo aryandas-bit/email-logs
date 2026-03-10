@@ -4,6 +4,7 @@
 (function () {
 
   let agentEmail = null;
+  const recentLogs = {}; // ticketId+status → timestamp, prevents duplicate fires
 
   function makeTimestamp() {
     return new Date().toLocaleString('en-IN', {
@@ -96,8 +97,13 @@
 
   function logEntry(status) {
     const ticketId = getTicketInfo();
+    const key = ticketId + '|' + status;
+    const now = Date.now();
+    // Suppress duplicate fires within 15 seconds for the same ticket+status
+    if (recentLogs[key] && now - recentLogs[key] < 15000) return;
+    recentLogs[key] = now;
     const agent = detectAgentEmail() || 'unknown';
-    const entry = { id: Date.now(), ticketId, timestamp: makeTimestamp(), status, agentEmail: agent };
+    const entry = { id: now, ticketId, timestamp: makeTimestamp(), status, agentEmail: agent };
     window.postMessage({ type: 'yl-log-entry', entry }, '*');
     const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
     showToast((status === 'Resolved' ? '✓' : '⏸') + ' Logged: ' + ticketId + ' · ' + agent.split('@')[0], color);
