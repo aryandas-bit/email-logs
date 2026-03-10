@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Yellow.ai Email Logger",
-  "version": "1.0",
+  "version": "2.0",
   "description": "Auto-logs Resolved / On Hold tickets from Yellow.ai to your Email Log Sheet",
   "permissions": ["storage"],
+  "host_permissions": [
+    "https://*.firebaseio.com/*"
+  ],
   "content_scripts": [
     {
       "matches": ["https://cloud.yellow.ai/*"],
@@ -15,11 +18,6 @@
       "matches": ["https://cloud.yellow.ai/*"],
       "js": ["bridge.js"],
       "run_at": "document_start"
-    },
-    {
-      "matches": ["https://email-logs.vercel.app/*"],
-      "js": ["logpage.js"],
-      "run_at": "document_idle"
     }
   ]
 }

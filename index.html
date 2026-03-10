@@ -3,292 +3,265 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Email Log Sheet</title>
+<title>Team Email Log Sheet</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f8f9fa;
+    background: #f0f2f5;
     min-height: 100vh;
     padding: 32px 20px;
   }
-  .container { max-width: 800px; margin: 0 auto; }
+  .container { max-width: 880px; margin: 0 auto; }
 
   /* Header */
   .header {
     display: flex; justify-content: space-between; align-items: flex-start;
-    flex-wrap: wrap; gap: 12px; margin-bottom: 28px;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
   }
   .header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-  .header p { font-size: 14px; color: #888; margin-top: 4px; }
+  .conn-line { font-size: 13px; color: #888; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+  .conn-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .conn-dot.live { background: #2e7d32; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   .btn-extract {
     padding: 10px 20px; border-radius: 8px; border: none;
     background: #ccc; color: #fff; font-size: 14px; font-weight: 600;
     cursor: not-allowed; display: flex; align-items: center; gap: 6px;
-    transition: background 0.2s;
   }
   .btn-extract.active { background: #2e7d32; cursor: pointer; }
   .btn-extract.active:hover { background: #1b5e20; }
 
-  /* Action buttons */
-  .action-row {
-    display: flex; gap: 12px; margin-bottom: 24px; align-items: center; flex-wrap: wrap;
-  }
-  .action-hint {
-    font-size: 13px; color: #999; flex: 1;
-  }
-  .btn-resolved {
-    padding: 12px 24px; border-radius: 8px; border: none;
-    background: #2e7d32; color: #fff; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: background 0.2s; white-space: nowrap;
-  }
-  .btn-resolved:hover { background: #1b5e20; }
-  .btn-onhold {
-    padding: 12px 24px; border-radius: 8px; border: none;
-    background: #f5a623; color: #fff; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: background 0.2s; white-space: nowrap;
-  }
-  .btn-onhold:hover { background: #d4891a; }
+  /* Summary cards */
+  .summary { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+  .card { background: #fff; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); flex: 1; min-width: 110px; }
+  .card .label { font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+  .card .value { font-size: 28px; font-weight: 700; color: #1a1a2e; margin-top: 6px; line-height: 1; }
+  .card .value.green { color: #2e7d32; }
+  .card .value.orange { color: #e65100; }
+  .card .value.blue { color: #1565c0; }
 
-  /* Toast */
-  .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #333; color: #fff; padding: 10px 20px; border-radius: 8px;
-    font-size: 13px; opacity: 0; pointer-events: none;
-    transition: opacity 0.25s;
+  /* Agent section */
+  .agent-section { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.08); }
+  .agent-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #fff; padding: 14px 18px;
+    cursor: pointer; user-select: none;
+    border-bottom: 1px solid #f0f0f0;
   }
-  .toast.show { opacity: 1; }
+  .agent-header:hover { background: #fafbfc; }
+  .agent-left { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 13px; }
+  .agent-name { font-weight: 600; font-size: 15px; color: #1a1a2e; }
+  .agent-email { font-size: 12px; color: #999; margin-top: 1px; }
+  .agent-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge-total    { background: #e8eaf6; color: #3949ab; }
+  .badge-resolved { background: #e8f5e9; color: #2e7d32; }
+  .badge-onhold   { background: #fff3e0; color: #e65100; }
+  .chevron { color: #bbb; font-size: 11px; margin-left: 4px; transition: transform 0.2s; }
+  .chevron.open { transform: rotate(180deg); }
 
   /* Table */
-  .table-wrap {
-    background: #fff; border-radius: 12px; overflow: hidden;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-  }
-  .table-header {
-    display: grid; grid-template-columns: 60px 1.4fr 1.5fr 1fr 50px;
-    padding: 12px 18px; background: #f1f3f5; font-weight: 700;
-    font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 0.5px;
-  }
-  .empty-state {
-    padding: 40px 18px; text-align: center; color: #aaa; font-size: 14px;
-  }
-  .table-row {
-    display: grid; grid-template-columns: 60px 1.4fr 1.5fr 1fr 50px;
-    padding: 12px 18px; align-items: center; border-top: 1px solid #f0f0f0;
-    font-size: 14px; transition: background 0.15s;
-  }
-  .table-row:hover { background: #fafbfc; }
-  .row-num { color: #999; font-weight: 600; }
-  .row-ticket {
-    font-weight: 600; color: #1a1a2e; font-family: monospace; font-size: 13px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    max-width: 180px;
-  }
-  .row-time { color: #666; font-size: 13px; }
-
-  /* Status badges */
-  .status-badge {
-    padding: 4px 10px; border-radius: 14px; font-size: 12px;
-    font-weight: 600; cursor: pointer; outline: none;
-  }
+  .agent-table { background: #fff; }
+  .agent-table.collapsed { display: none; }
+  .tbl-header { display: grid; grid-template-columns: 46px 1.4fr 1.5fr 1fr; padding: 9px 18px; background: #f9fafb; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tbl-row { display: grid; grid-template-columns: 46px 1.4fr 1.5fr 1fr; padding: 11px 18px; border-top: 1px solid #f5f5f5; font-size: 13px; align-items: center; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { background: #f0fff4; } to { background: transparent; } }
+  .tbl-row:hover { background: #fafbfc; }
+  .row-num { color: #ccc; font-weight: 600; font-size: 12px; }
+  .row-ticket { font-family: monospace; font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-time { color: #aaa; font-size: 12px; }
+  .status-pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
   .status-resolved { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; }
-  .status-onhold { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
+  .status-onhold   { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
 
-  /* Remove button */
-  .btn-remove {
-    background: none; border: none; color: #ccc; font-size: 18px;
-    cursor: pointer; transition: color 0.2s;
-  }
-  .btn-remove:hover { color: #e74c3c; }
-
-  /* Footer */
-  .table-footer {
-    padding: 10px 18px; background: #f9fafb; border-top: 1px solid #f0f0f0;
-    font-size: 13px; color: #888; display: flex; justify-content: space-between;
-  }
-  .table-footer b { color: #333; }
-  .count-resolved { color: #2e7d32; }
-  .count-onhold { color: #e65100; }
+  .empty-overall { text-align: center; padding: 60px 20px; background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); color: #ccc; }
+  .empty-overall p { margin-top: 8px; font-size: 14px; }
 </style>
 </head>
 <body>
 <div class="container">
-  <!-- Header -->
+
   <div class="header">
     <div>
-      <h1>Email Log Sheet</h1>
-      <p>Auto-synced from Yellow.ai · or copy a ticket ID and click a button</p>
+      <h1>Team Email Log Sheet</h1>
+      <div class="conn-line">
+        <span class="conn-dot" id="connDot"></span>
+        <span id="connStatus">Connecting…</span>
+      </div>
     </div>
     <button class="btn-extract" id="extractBtn" onclick="extractCSV()">
-      <span style="font-size:16px">⬇</span> Extract CSV
+      <span style="font-size:15px">⬇</span> Export CSV
     </button>
   </div>
 
-  <!-- Action Buttons -->
-  <div class="action-row">
-    <button class="btn-resolved" onclick="logFromClipboard('Resolved')">✓ Resolved</button>
-    <button class="btn-onhold" onclick="logFromClipboard('On Hold')">⏸ On Hold</button>
-    <span class="action-hint">Entries auto-appear from Yellow.ai · clipboard buttons work as backup</span>
+  <div class="summary" id="summary" style="display:none">
+    <div class="card"><div class="label">Agents</div><div class="value blue" id="cAgents">0</div></div>
+    <div class="card"><div class="label">Total</div><div class="value" id="cTotal">0</div></div>
+    <div class="card"><div class="label">Resolved</div><div class="value green" id="cResolved">0</div></div>
+    <div class="card"><div class="label">On Hold</div><div class="value orange" id="cOnHold">0</div></div>
   </div>
 
-  <!-- Table -->
-  <div class="table-wrap">
-    <div class="table-header">
-      <span>#</span><span>Email / Ticket</span><span>Timestamp</span><span>Status</span><span></span>
-    </div>
-    <div id="tableBody">
-      <div class="empty-state">No entries yet. Copy an email or ticket ID and click a button above.</div>
-    </div>
-    <div id="tableFooter" style="display:none" class="table-footer">
-      <span>Total entries: <b id="totalCount">0</b></span>
-      <span>Resolved: <b class="count-resolved" id="resolvedCount">0</b> · On Hold: <b class="count-onhold" id="onholdCount">0</b></span>
+  <div id="agentsContainer">
+    <div class="empty-overall">
+      <strong style="font-size:18px;color:#ddd">No entries yet</strong>
+      <p>Entries appear here instantly as agents log tickets on Yellow.ai</p>
     </div>
   </div>
+
 </div>
-
-<div class="toast" id="toast"></div>
-
 <script>
-  var entries = JSON.parse(localStorage.getItem('yl_entries') || '[]');
+// ── SET YOUR FIREBASE URL HERE ──
+const FIREBASE_URL = 'https://yl-logs-default-rtdb.firebaseio.com';
 
-  function save() {
-    localStorage.setItem('yl_entries', JSON.stringify(entries));
+let allData = {};
+
+const COLORS = ['#5c6bc0','#26a69a','#ef5350','#ab47bc','#42a5f5','#66bb6a','#ffa726','#ec407a'];
+function avatarColor(key) { let h = 0; for (const c of key) h = (h * 31 + c.charCodeAt(0)) & 0xffffff; return COLORS[Math.abs(h) % COLORS.length]; }
+function initials(email) { const n = (email||'?').split('@')[0].split(/[._\-]/); return n.length >= 2 ? (n[0][0]+n[1][0]).toUpperCase() : (email||'?').slice(0,2).toUpperCase(); }
+function displayName(email) { return (email||'unknown').split('@')[0].split(/[._]/).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
+
+function renderAll(data) {
+  allData = data || {};
+  const container = document.getElementById('agentsContainer');
+  const agentKeys = Object.keys(allData);
+
+  if (agentKeys.length === 0) {
+    container.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No entries yet</strong><p>Entries appear here instantly as agents log tickets on Yellow.ai</p></div>`;
+    document.getElementById('summary').style.display = 'none';
+    document.getElementById('extractBtn').classList.remove('active');
+    return;
   }
-  window.save = save;
 
-  // Handle entry passed via URL params (from bookmarklet)
-  (function () {
-    const p = new URLSearchParams(location.search);
-    const ticket = p.get('ticket');
-    const status = p.get('status');
-    if (ticket && status) {
-      const ts = new Date().toLocaleString('en-IN', {
-        year: 'numeric', month: 'short', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-      });
-      entries.push({ id: Date.now(), ticketId: ticket, timestamp: ts, status });
-      save();
-      history.replaceState(null, '', location.pathname);
-      // Auto-close this tab after showing confirmation
-      window.addEventListener('load', function () {
-        const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
-        showToast('Logged as ' + status + ': ' + ticket, color);
-        setTimeout(() => window.close(), 1500);
-      });
+  document.getElementById('summary').style.display = 'flex';
+  document.getElementById('extractBtn').classList.add('active');
+
+  // Preserve open/collapsed state
+  const openState = {};
+  container.querySelectorAll('.agent-section').forEach(sec => {
+    openState[sec.dataset.key] = !sec.querySelector('.agent-table').classList.contains('collapsed');
+  });
+
+  // Sort: most recent entry first
+  const sorted = agentKeys.slice().sort((a, b) => {
+    const la = Math.max(...Object.keys(allData[a]).map(Number));
+    const lb = Math.max(...Object.keys(allData[b]).map(Number));
+    return lb - la;
+  });
+
+  let totalTickets = 0, totalResolved = 0, totalOnHold = 0;
+
+  const html = sorted.map(agentKey => {
+    const entries = Object.values(allData[agentKey]).sort((a, b) => b.id - a.id);
+    const email    = entries[0]?.agentEmail || agentKey;
+    const resolved = entries.filter(e => e.status === 'Resolved').length;
+    const onhold   = entries.filter(e => e.status === 'On Hold').length;
+    totalTickets  += entries.length;
+    totalResolved += resolved;
+    totalOnHold   += onhold;
+    const isOpen = openState[agentKey] !== false;
+
+    return `
+      <div class="agent-section" data-key="${agentKey}">
+        <div class="agent-header" onclick="toggle('${agentKey}')">
+          <div class="agent-left">
+            <div class="avatar" style="background:${avatarColor(agentKey)}">${initials(email)}</div>
+            <div>
+              <div class="agent-name">${displayName(email)}</div>
+              <div class="agent-email">${email}</div>
+            </div>
+          </div>
+          <div class="agent-right">
+            <span class="badge badge-total">${entries.length} total</span>
+            <span class="badge badge-resolved">${resolved} resolved</span>
+            <span class="badge badge-onhold">${onhold} on hold</span>
+            <span class="chevron ${isOpen ? 'open' : ''}" id="chev-${agentKey}">▼</span>
+          </div>
+        </div>
+        <div class="agent-table ${isOpen ? '' : 'collapsed'}" id="tbl-${agentKey}">
+          <div class="tbl-header"><span>#</span><span>Ticket</span><span>Timestamp</span><span>Status</span></div>
+          ${entries.map((e, i) => `
+            <div class="tbl-row">
+              <span class="row-num">${i + 1}</span>
+              <span class="row-ticket" title="${e.ticketId}">${e.ticketId}</span>
+              <span class="row-time">${e.timestamp}</span>
+              <span class="status-pill ${e.status === 'Resolved' ? 'status-resolved' : 'status-onhold'}">${e.status}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = html;
+  document.getElementById('cAgents').textContent   = agentKeys.length;
+  document.getElementById('cTotal').textContent    = totalTickets;
+  document.getElementById('cResolved').textContent = totalResolved;
+  document.getElementById('cOnHold').textContent   = totalOnHold;
+}
+
+function toggle(key) {
+  document.getElementById('tbl-'  + key).classList.toggle('collapsed');
+  document.getElementById('chev-' + key).classList.toggle('open');
+}
+
+// ── Real-time Firebase SSE ──
+function connect() {
+  const src = new EventSource(FIREBASE_URL + '/entries.json');
+
+  src.addEventListener('put', function(e) {
+    const msg = JSON.parse(e.data);
+    if (msg.path === '/') {
+      renderAll(msg.data);
+    } else {
+      const parts = msg.path.replace(/^\//, '').split('/');
+      if (parts.length === 2) {
+        const [agentKey, entryId] = parts;
+        if (!allData[agentKey]) allData[agentKey] = {};
+        allData[agentKey][entryId] = msg.data;
+        renderAll(allData);
+      }
     }
-  })();
+    document.getElementById('connDot').className = 'conn-dot live';
+    document.getElementById('connStatus').textContent = 'Live';
+  });
 
-  function showToast(msg, color) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.style.background = color || '#333';
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2200);
-  }
-
-  async function logFromClipboard(status) {
-    let text = '';
-    try {
-      text = await navigator.clipboard.readText();
-    } catch (e) {
-      showToast('Clipboard access denied. Allow clipboard permission and try again.', '#c0392b');
-      return;
+  src.addEventListener('patch', function(e) {
+    const msg = JSON.parse(e.data);
+    if (msg.data && typeof msg.data === 'object') {
+      for (const [k, v] of Object.entries(msg.data)) {
+        if (!allData[k]) allData[k] = {};
+        Object.assign(allData[k], v);
+      }
+      renderAll(allData);
     }
+  });
 
-    text = text.trim();
-    if (!text) {
-      showToast('Clipboard is empty — copy an email or ticket ID first.', '#888');
-      return;
-    }
+  src.onerror = function() {
+    document.getElementById('connDot').className = 'conn-dot';
+    document.getElementById('connStatus').textContent = 'Reconnecting…';
+  };
+}
 
-    // Use first line only if multi-line (e.g. full email pasted)
-    const label = text.split('\n')[0].trim().slice(0, 120);
+connect();
 
-    const now = new Date();
-    const ts = now.toLocaleString('en-IN', {
-      year: 'numeric', month: 'short', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-    });
-
-    entries.push({ id: Date.now(), ticketId: label, timestamp: ts, status });
-    save();
-    render();
-
-    const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
-    showToast(`Logged as ${status}: ${label.slice(0, 40)}${label.length > 40 ? '…' : ''}`, color);
-  }
-
-  function updateStatus(id, newStatus) {
-    const e = entries.find(x => x.id === id);
-    if (e) e.status = newStatus;
-    save();
-    render();
-  }
-
-  function removeEntry(id) {
-    entries = entries.filter(x => x.id !== id);
-    save();
-    render();
-  }
-
-  function render() {
-    const body = document.getElementById('tableBody');
-    const footer = document.getElementById('tableFooter');
-    const extractBtn = document.getElementById('extractBtn');
-
-    if (entries.length === 0) {
-      body.innerHTML = '<div class="empty-state">No entries yet. Copy an email or ticket ID and click a button above.</div>';
-      footer.style.display = 'none';
-      extractBtn.classList.remove('active');
-      extractBtn.style.cursor = 'not-allowed';
-      return;
-    }
-
-    extractBtn.classList.add('active');
-    extractBtn.style.cursor = 'pointer';
-
-    let html = '';
+// ── CSV export ──
+function extractCSV() {
+  if (!Object.keys(allData).length) return;
+  const rows = [['Agent Name','Email','Sr No','Ticket','Timestamp','Status']];
+  for (const agentKey of Object.keys(allData)) {
+    const entries = Object.values(allData[agentKey]).sort((a, b) => a.id - b.id);
+    const email = entries[0]?.agentEmail || agentKey;
     entries.forEach((e, i) => {
-      const cls = e.status === 'Resolved' ? 'status-resolved' : 'status-onhold';
-      const safe = e.ticketId.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      html += `
-        <div class="table-row">
-          <span class="row-num">${i + 1}</span>
-          <span class="row-ticket" title="${safe}">${safe}</span>
-          <span class="row-time">${e.timestamp}</span>
-          <span>
-            <select class="status-badge ${cls}" onchange="updateStatus(${e.id}, this.value)">
-              <option value="Resolved" ${e.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-              <option value="On Hold" ${e.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
-            </select>
-          </span>
-          <span><button class="btn-remove" onclick="removeEntry(${e.id})" title="Remove">×</button></span>
-        </div>`;
+      rows.push([displayName(email), email, i + 1, e.ticketId, e.timestamp, e.status]);
     });
-    body.innerHTML = html;
-
-    footer.style.display = 'flex';
-    document.getElementById('totalCount').textContent = entries.length;
-    document.getElementById('resolvedCount').textContent = entries.filter(e => e.status === 'Resolved').length;
-    document.getElementById('onholdCount').textContent = entries.filter(e => e.status === 'On Hold').length;
   }
-
-  render(); // show existing entries on load
-
-  function extractCSV() {
-    if (entries.length === 0) return;
-    const header = 'Sr No,Email / Ticket,Timestamp,Status';
-    const rows = entries.map((e, i) => `${i + 1},"${e.ticketId.replace(/"/g, '""')}","${e.timestamp}","${e.status}"`);
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `email_log_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = `team_log_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
 </script>
 </body>
 </html>
