@@ -9,6 +9,8 @@ function sanitizeKey(email) {
   return (email || 'unknown').replace(/[@.]/g, '_');
 }
 
+const recentPushes = {}; // ticketId|status → timestamp, prevents duplicate Firebase writes
+
 function pushToFirebase(entry) {
   const agentKey = sanitizeKey(entry.agentEmail);
   fetch(`${FIREBASE_URL}/entries/${agentKey}/${entry.id}.json`, {
@@ -28,18 +30,29 @@ window.addEventListener('message', function (e) {
 
   const entry = e.data.entry;
 
-  // Save locally
-  chrome.storage.local.get({ yl_entries: [] }, function (data) {
-    const entries = data.yl_entries;
-    const last = entries[entries.length - 1];
-    if (last && last.ticketId === entry.ticketId && last.status === entry.status &&
-        entry.id - last.id < 5000) return;
-    entries.push(entry);
-    chrome.storage.local.set({ yl_entries: entries }, function () {
-      console.log('[YL-Logger] Saved to storage:', entry.status, entry.ticketId);
-    });
-  });
+  // Synchronous dedup — block duplicate Firebase pushes within 10 minutes
+  const key = entry.ticketId + '|' + entry.status;
+  const now = Date.now();
+  if (recentPushes[key] && now - recentPushes[key] < 600000) return;
+  recentPushes[key] = now;
 
-  // Push to shared Firebase
+  // Push to shared Firebase (always, regardless of local storage state)
   pushToFirebase(entry);
+
+  // Save locally (chrome.storage may be unavailable if extension context was invalidated)
+  try {
+    chrome.storage.local.get({ yl_entries: [] }, function (data) {
+      if (chrome.runtime.lastError) return;
+      const entries = data.yl_entries;
+      const recent = entries.filter(e => e.ticketId === entry.ticketId && e.status === entry.status &&
+          entry.id - e.id < 600000);
+      if (recent.length > 0) return;
+      entries.push(entry);
+      chrome.storage.local.set({ yl_entries: entries }, function () {
+        console.log('[YL-Logger] Saved to storage:', entry.status, entry.ticketId);
+      });
+    });
+  } catch (_) {
+    console.warn('[YL-Logger] Storage unavailable — refresh the page to restore full functionality');
+  }
 });

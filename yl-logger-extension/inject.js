@@ -9,27 +9,39 @@
   function makeTimestamp() {
     return new Date().toLocaleString('en-IN', {
       year: 'numeric', month: 'short', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+      timeZone: 'Asia/Kolkata'
     });
   }
 
-  function getTicketInfo(apiUrl) {
-    // 1. Extract ticket number from the triggering API URL (most reliable)
+  function getTicketInfo(apiUrl, body) {
+    // 1. API URL — ticket number in path or query
     if (apiUrl) {
-      const m = apiUrl.match(/\/tickets?\/(\d+)/i) || apiUrl.match(/[?&]ticketId=(\d+)/i) || apiUrl.match(/\/(\d{3,})/);
+      const m = apiUrl.match(/\/tickets?\/(\d+)/i) ||
+                apiUrl.match(/[?&]ticket[_-]?id=(\d+)/i) ||
+                apiUrl.match(/\/(\d{4,})/);
       if (m) return m[1];
     }
-    // 2. Current page URL
-    const urlMatch = location.pathname.match(/\/(\d+)(?:\/|$|\?)/);
+    // 2. Request body — "ticketId":4107 or "id":4107 etc.
+    if (body) {
+      const s = typeof body === 'string' ? body : JSON.stringify(body);
+      const m = s.match(/"ticket[_-]?id"\s*:\s*(\d+)/i) ||
+                s.match(/"ticketId"\s*:\s*"(\d+)"/i) ||
+                s.match(/"uid"\s*:\s*"?(\d{4,})"?/i);
+      if (m) return m[1];
+    }
+    // 3. Current page URL
+    const urlMatch = location.pathname.match(/\/(\d{4,})(?:\/|$)/);
     if (urlMatch) return urlMatch[1];
-    // 3. DOM scan for visible ticket number (look for # patterns)
+    // 4. DOM scan for visible ticket number
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
-      const m = node.nodeValue.match(/#(\d{3,})\b/) || node.nodeValue.match(/\bticket[:\s#]*(\d{3,})/i);
+      const m = node.nodeValue.match(/#(\d{4,})\b/) ||
+                node.nodeValue.match(/\bticket[:\s#]*(\d{4,})/i);
       if (m) return m[1];
     }
-    return null; // Don't log if we can't identify the ticket
+    return null;
   }
 
   function extractUltraEmail(str) {
@@ -102,13 +114,13 @@
     t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
   }
 
-  function logEntry(status, apiUrl) {
-    const ticketId = getTicketInfo(apiUrl);
+  function logEntry(status, apiUrl, body) {
+    const ticketId = getTicketInfo(apiUrl, body);
     if (!ticketId) { console.log('[YL-Logger] Skipped: could not identify ticket ID'); return; }
     const key = ticketId + '|' + status;
     const now = Date.now();
-    // Suppress duplicate fires within 15 seconds for the same ticket+status
-    if (recentLogs[key] && now - recentLogs[key] < 15000) return;
+    // Suppress duplicate fires within 10 minutes for the same ticket+status
+    if (recentLogs[key] && now - recentLogs[key] < 600000) return;
     recentLogs[key] = now;
     const agent = detectAgentEmail() || 'unknown';
     const entry = { id: now, ticketId, timestamp: makeTimestamp(), status, agentEmail: agent };
@@ -135,16 +147,16 @@
       } catch (_) {}
     }
 
-    // Detect status changes in mutating requests
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+    // Detect status changes in mutating requests (skip search/filter/list endpoints)
+    if (['POST', 'PUT', 'PATCH'].includes(method) && !/search|filter|list|query|export/i.test(url)) {
       try {
         let body = '';
         if (opts.body) body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
         const combined = (url + ' ' + body).toLowerCase();
         if (/resolv|"status"\s*:\s*"resolved"/i.test(combined)) {
-          setTimeout(() => logEntry('Resolved', url), 400);
+          setTimeout(() => logEntry('Resolved', url, body), 400);
         } else if (/on.?hold|onhold|"status"\s*:\s*"hold"/i.test(combined)) {
-          setTimeout(() => logEntry('On Hold', url), 400);
+          setTimeout(() => logEntry('On Hold', url, body), 400);
         }
       } catch (_) {}
     }
@@ -168,11 +180,11 @@
         try { sniffEmail(this.responseText); } catch (_) {}
       });
     }
-    if (['POST', 'PUT', 'PATCH'].includes((this._ylMethod || '').toUpperCase())) {
+    if (['POST', 'PUT', 'PATCH'].includes((this._ylMethod || '').toUpperCase()) && !/search|filter|list|query|export/i.test(this._ylUrl || '')) {
       try {
         const combined = ((this._ylUrl || '') + ' ' + (body || '')).toLowerCase();
-        if (/resolv/.test(combined)) setTimeout(() => logEntry('Resolved', this._ylUrl), 400);
-        else if (/on.?hold|onhold/.test(combined)) setTimeout(() => logEntry('On Hold', this._ylUrl), 400);
+        if (/resolv/.test(combined)) setTimeout(() => logEntry('Resolved', this._ylUrl, body), 400);
+        else if (/on.?hold|onhold/.test(combined)) setTimeout(() => logEntry('On Hold', this._ylUrl, body), 400);
       } catch (_) {}
     }
     return _send.apply(this, arguments);

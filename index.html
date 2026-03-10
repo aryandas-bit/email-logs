@@ -160,6 +160,7 @@ function renderAll(data) {
   const allEntries = [];
   for (const agentKey of Object.keys(allData)) {
     for (const entry of Object.values(allData[agentKey])) {
+      if (!entry || !entry.ticketId) continue;
       allEntries.push({ ...entry, _agentKey: agentKey });
     }
   }
@@ -286,8 +287,12 @@ function connect() {
       const parts = msg.path.replace(/^\//, '').split('/');
       if (parts.length === 2) {
         const [agentKey, entryId] = parts;
-        if (!allData[agentKey]) allData[agentKey] = {};
-        allData[agentKey][entryId] = msg.data;
+        if (msg.data === null) {
+          if (allData[agentKey]) delete allData[agentKey][entryId];
+        } else {
+          if (!allData[agentKey]) allData[agentKey] = {};
+          allData[agentKey][entryId] = msg.data;
+        }
         renderAll(allData);
       }
     }
