@@ -24,24 +24,50 @@
     return 'Ticket-' + Date.now();
   }
 
+  function extractEmail(str) {
+    if (!str) return null;
+    const m = String(str).match(/[\w.+\-]+@[\w.\-]+\.[a-z]{2,}/i);
+    return m ? m[0] : null;
+  }
+
   function detectAgentEmail() {
     if (agentEmail) return agentEmail;
-    // Check common Yellow.ai window globals
-    const globals = ['__userData', 'userData', 'user', 'currentUser', 'agentProfile', '__agent'];
+
+    // 1. Window globals
+    const globals = ['__userData', 'userData', 'user', 'currentUser', 'agentProfile', '__agent', 'YellowAI', 'ylUser'];
     for (const g of globals) {
       try {
         const obj = window[g];
-        if (obj && typeof obj.email === 'string') { agentEmail = obj.email; return agentEmail; }
-      } catch (e) {}
+        if (!obj) continue;
+        const e = extractEmail(obj.email) || extractEmail(obj.emailId) || extractEmail(JSON.stringify(obj));
+        if (e) { agentEmail = e; return agentEmail; }
+      } catch (_) {}
     }
-    // DOM scan — look in header/nav/profile areas first
-    const candidates = document.querySelectorAll('header *, nav *, [class*="profile"] *, [class*="avatar"] *, [class*="agent"] *, [class*="user"] *');
-    for (const el of candidates) {
-      if (el.childElementCount === 0) {
-        const m = (el.textContent || '').match(/[\w.+\-]+@[\w.\-]+\.[a-z]{2,}/i);
-        if (m) { agentEmail = m[0]; return agentEmail; }
+
+    // 2. localStorage — scan all keys for an email
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const val = localStorage.getItem(key);
+        const e = extractEmail(val);
+        if (e) { agentEmail = e; return agentEmail; }
       }
+    } catch (_) {}
+
+    // 3. Cookies
+    try {
+      const e = extractEmail(document.cookie);
+      if (e) { agentEmail = e; return agentEmail; }
+    } catch (_) {}
+
+    // 4. Full DOM scan
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const e = extractEmail(node.nodeValue);
+      if (e) { agentEmail = e; return agentEmail; }
     }
+
     return null;
   }
 
