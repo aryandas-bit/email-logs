@@ -1,0 +1,18 @@
+name: Hourly Ticket Report
+
+on:
+  schedule:
+    - cron: '35 * * * *'  # :35 UTC = :05 IST every hour
+  workflow_dispatch:        # allow manual trigger
+
+jobs:
+  post-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Post hourly report to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python3 scripts/hourly_report.py
