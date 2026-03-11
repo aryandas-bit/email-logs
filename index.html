@@ -198,6 +198,7 @@ function renderAll(data) {
   for (const agentKey of Object.keys(allData)) {
     for (const entry of Object.values(allData[agentKey])) {
       if (!entry || !entry.ticketId) continue;
+      if (/^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) continue;
       allEntries.push({ ...entry, _agentKey: agentKey });
     }
   }
