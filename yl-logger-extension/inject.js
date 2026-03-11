@@ -42,9 +42,8 @@
     // 2. Request body — "ticketId":4107 or "id":4107 etc.
     if (body) {
       const s = typeof body === 'string' ? body : JSON.stringify(body);
-      const m = s.match(/"ticket[_-]?id"\s*:\s*(\d+)/i) ||
-                s.match(/"ticketId"\s*:\s*"(\d+)"/i) ||
-                s.match(/"uid"\s*:\s*"?(\d{4,})"?/i);
+      const m = s.match(/"ticket[_-]?id"\s*:\s*(\d{3,5})/i) ||
+                s.match(/"ticketId"\s*:\s*"(\d{3,5})"/i);
       if (m) return m[1];
     }
     // Do NOT fall back to page URL or DOM — that causes false positives when
