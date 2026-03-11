@@ -32,6 +32,11 @@
   .btn-export.active:hover { background: #1b5e20; }
   .btn-clear { padding: 9px 18px; border-radius: 8px; border: none; background: #fee2e2; color: #dc2626; font-size: 13px; font-weight: 600; cursor: pointer; }
   .btn-clear:hover { background: #fca5a5; }
+  .date-wrap { display: flex; align-items: center; gap: 6px; }
+  .date-input { padding: 8px 10px; border-radius: 8px; border: 1.5px solid #e8e8e8; font-size: 13px; font-family: inherit; color: #1a1a2e; background: #fff; cursor: pointer; }
+  .date-input:focus { outline: none; border-color: #5c6bc0; }
+  .date-clear { padding: 8px 10px; border-radius: 8px; border: 1.5px solid #e8e8e8; background: #fff; font-size: 12px; font-weight: 600; color: #aaa; cursor: pointer; }
+  .date-clear:hover { border-color: #bbb; color: #555; }
 
   /* Summary cards */
   .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -90,6 +95,10 @@
   .mag-live-badge::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #2e7d32; animation: pulse 2s infinite; }
   .mag-close { font-size: 20px; color: #aaa; cursor: pointer; line-height: 1; padding: 0 4px; }
   .mag-close:hover { color: #555; }
+  .mag-shift-tabs { display: flex; gap: 6px; padding: 10px 16px 6px; flex-wrap: wrap; border-bottom: 1px solid #f0f0f0; }
+  .mag-tab { padding: 3px 10px; border-radius: 12px; border: 1.5px solid #e8e8e8; background: #fff; font-size: 11px; font-weight: 600; color: #999; cursor: pointer; }
+  .mag-tab:hover { border-color: #bbb; color: #555; }
+  .mag-tab.active { background: #1a1a2e; border-color: #1a1a2e; color: #fff; }
   .mag-list { overflow-y: auto; padding: 8px 0; }
   .mag-row { display: flex; align-items: center; gap: 10px; padding: 10px 20px; }
   .mag-row:hover { background: #fafbfc; }
@@ -101,6 +110,8 @@
   .mag-stats { font-size: 11px; color: #aaa; margin-top: 1px; }
   .mag-stats .res { color: #2e7d32; font-weight: 600; }
   .mag-stats .hld { color: #e65100; font-weight: 600; }
+  .mag-sub { font-size: 10px; color: #bbb; margin-top: 2px; }
+  .mag-sub .shift-tag { font-weight: 600; color: #888; }
   .mag-total { font-size: 16px; font-weight: 700; color: #1a1a2e; flex-shrink: 0; }
 </style>
 </head>
@@ -115,7 +126,11 @@
         <span id="connStatus">Connecting…</span>
       </div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="date-wrap">
+        <input class="date-input" type="date" id="datePicker" onchange="setDateFilter(this.value)">
+        <button class="date-clear" onclick="setDateFilter('')" title="Show all dates">All</button>
+      </div>
       <button class="btn-export" id="exportBtn" onclick="extractCSV()">⬇ Export CSV</button>
       <button class="btn-clear" onclick="clearAllData()">🗑 Clear All</button>
     </div>
@@ -138,6 +153,7 @@
         </div>
         <span class="mag-close" onclick="closeAgentsModal()">×</span>
       </div>
+      <div class="mag-shift-tabs" id="mag-shift-tabs"></div>
       <div class="mag-list" id="mag-list"></div>
     </div>
   </div>
@@ -155,15 +171,126 @@ const FIREBASE_URL = 'https://yl-logs-default-rtdb.firebaseio.com';
 
 let allData = {};
 let liveHeartbeats = {};
+let activeDateFilter = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD, default today
+
+function setDateFilter(val) {
+  activeDateFilter = val;
+  document.getElementById('datePicker').value = val;
+  renderAll(allData);
+}
+
+function entryMatchesDate(entry) {
+  if (!activeDateFilter) return true;
+  // activeDateFilter = "2026-03-11", entry.timestamp = "11 Mar 2026, 09:02:34 PM"
+  const entryDate = (entry.timestamp || '').split(',')[0].trim(); // "11 Mar 2026"
+  const d = new Date(activeDateFilter + 'T00:00:00');
+  const target = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); // "11 Mar 2026"
+  return entryDate === target;
+}
 
 const COLORS = ['#5c6bc0','#26a69a','#ef5350','#ab47bc','#42a5f5','#66bb6a','#ffa726','#ec407a'];
 function avatarColor(key) { let h = 0; for (const c of key) h = (h * 31 + c.charCodeAt(0)) & 0xffffff; return COLORS[Math.abs(h) % COLORS.length]; }
 function initials(email) { const n = (email||'?').split('@')[0].split(/[._\-]/); return n.length >= 2 ? (n[0][0]+n[1][0]).toUpperCase() : (email||'?').slice(0,2).toUpperCase(); }
 function displayName(email) {
   const local = (email||'unknown').split('@')[0];
-  // Strip trailing _ext or similar suffixes
   const clean = local.replace(/_ext$/i, '').replace(/[_\.]/g, ' ');
   return clean.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+// Agent roster: keyed by lowercase display name
+const ROSTER = {
+  'umar rangrez':            { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'mohd talib khan':         { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'aditi kumari':            { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'burhan bhat':             { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Digitech', ch: 'Chat L1' },
+  'manasa manjunath':        { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'raksha goenka':           { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'shivani jaiswal':         { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Infoneoo', ch: 'Chat L1' },
+  'syed sadaqat ahmed':      { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'arjun verma':             { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Infoneoo', ch: 'Chat L1' },
+  'simran vidya':            { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'loknath r':               { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'likhitha l':              { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'niharika barar':          { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'shrushti kiran desai':    { shift: 'Evening 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'shrishty ganguly':        { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'ankit bhandari':          { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'avishi gupta':            { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'mahyur jagdiiesh chandarey': { shift: 'Morning 1', time: '7AM–4PM', vendor: 'Inhouse', ch: 'Chat L2' },
+  'saloni jain':             { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'aayushi chourasia':       { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'ayushi chourasia':        { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'pratiksha panchal':       { shift: 'Morning 2', time: '2PM–11PM',  vendor: 'Infoneoo', ch: 'Chat L2' },
+  'mayank sharma':           { shift: 'Morning 2', time: '2PM–11PM',  vendor: 'Infoneoo', ch: 'Chat L2' },
+  'aditya ranjan':           { shift: 'Evening 1', time: '2PM–11PM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'ishita dutta':            { shift: 'Morning 1', time: '2PM–11PM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'sahil kadam':             { shift: 'Evening 1', time: '2PM–11PM',  vendor: 'Inhouse',  ch: 'Chat L1' },
+  'sayantan banerjee':       { shift: 'Evening 2', time: '2PM–11PM',  vendor: 'Cogent',   ch: 'Chat L2' },
+  'raunak yadav':            { shift: 'Evening 1', time: '2PM–11PM',  vendor: 'Digitech', ch: 'Chat L2' },
+  'swetketu chakraborty':    { shift: 'Evening 3', time: '4PM–1AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'priyanshu pandey':        { shift: 'Evening 3', time: '4PM–1AM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'adeeba qamar':            { shift: 'Evening 3', time: '4PM–1AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'srashti gupta':           { shift: 'Evening 4', time: '4PM–1AM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'keshav bhardwaj':         { shift: 'Evening 3', time: '4PM–1AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'diksha sagar':            { shift: 'Evening 3', time: '4PM–1AM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'amna sheikh':             { shift: 'Evening 3', time: '5PM–2AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'mantasha mirza':          { shift: 'Evening 3', time: '5PM–2AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'aryan das':               { shift: 'Evening 3', time: '5PM–2AM',   vendor: 'Inhouse',  ch: 'Chat L2' },
+  'shealvi yadav':           { shift: 'Evening 3', time: '5PM–2AM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'md osama':                { shift: 'Evening 4', time: '5PM–2AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'nitin prasanna deonoor':  { shift: 'Evening 3', time: '7PM–4AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'mohammed sameer':         { shift: 'Evening 3', time: '7PM–4AM',   vendor: 'Digitech', ch: 'Chat L1' },
+  'uzair hafiz':             { shift: 'Evening 3', time: '7PM–4AM',   vendor: 'Digitech', ch: 'Chat L1' },
+  'deepali gusain':          { shift: 'Evening 3', time: '7PM–4AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'rahul dahiya':            { shift: 'Evening 4', time: '7PM–4AM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'aman ray':                { shift: 'Evening 3', time: '7PM–4AM',   vendor: 'Digitech', ch: 'Chat L2' },
+  'umme kulsum':             { shift: 'Evening 3', time: '7PM–4AM',   vendor: 'Infoneoo', ch: 'Chat L1' },
+  'shaikanja das':           { shift: 'Evening 3', time: '7PM–4AM',   vendor: 'Infoneoo', ch: 'Chat L2' },
+  'munazir saifi':           { shift: 'Night',     time: '10PM–7AM',  vendor: 'Infoneoo', ch: 'Chat L2' },
+  'sonali dubey':            { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'abdul ahad khan':         { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L2' },
+  'priyanka nayan':          { shift: 'Night',     time: '10PM–7AM',  vendor: 'Infoneoo', ch: 'Chat L2' },
+  'manisha roy':             { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'suryansh singh':          { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'kashif nabi':             { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'sudhanshu mandal':        { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'md salim ahmed':          { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'uttam sharma':            { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'khushi singh':            { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L1' },
+  'yamini sehgal':           { shift: 'Night',     time: '10PM–7AM',  vendor: 'Digitech', ch: 'Chat L2' },
+  'akash garg':              { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'dharmanshu pandey':       { shift: 'Night',     time: '10PM–7AM',  vendor: 'Infoneoo', ch: 'Chat L1' },
+  'payal goenka':            { shift: 'Night',     time: '10PM–7AM',  vendor: 'Infoneoo', ch: 'Chat L2' },
+  'vishnuprasad balesh':     { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'vishnu balesh':           { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'mehar kashyap':           { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'bhawna choudhary':        { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'suyog shetti':            { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'tsering lhamo':           { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Chat L2' },
+  'deeksha chauhan':         { shift: 'Night',     time: '10PM–7AM',  vendor: 'Cogent',   ch: 'Chat L2' },
+  'shital wanjari':          { shift: 'Night',     time: '10PM–7AM',  vendor: 'Cogent',   ch: 'Chat L1' },
+  'mannan sachdeva':         { shift: 'Night',     time: '10PM–7AM',  vendor: 'Cogent',   ch: 'Chat L1' },
+  'tamanna begum':           { shift: 'Night',     time: '10PM–7AM',  vendor: 'Cogent',   ch: 'Chat L1' },
+  'nikita mastiholimath':    { shift: 'Night',     time: '10PM–7AM',  vendor: 'Cogent',   ch: 'Chat L2' },
+  'asma sultana':            { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Email' },
+  'pooja prajapati':         { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Infoneoo', ch: 'Email' },
+  'sonia singh':             { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Email' },
+  'ketki hiwarkar':          { shift: 'Morning 1', time: '7AM–4PM',   vendor: 'Inhouse',  ch: 'Email' },
+  'sandeep manda':           { shift: 'Morning 2', time: '2PM–11PM',  vendor: 'Inhouse',  ch: 'Email' },
+  'nitasha sharma':          { shift: 'Morning 2', time: '2PM–11PM',  vendor: 'Inhouse',  ch: 'Email' },
+  'ankita dave':             { shift: 'Morning 2', time: '2PM–11PM',  vendor: 'Digitech', ch: 'Email' },
+  'nimisa bora':             { shift: 'Evening 1', time: '2PM–11PM',  vendor: 'Inhouse',  ch: 'Email' },
+  'aman katiyar':            { shift: 'Evening 1', time: '2PM–11PM',  vendor: 'Inhouse',  ch: 'Email' },
+  'salman khan':             { shift: 'Evening 1', time: '2PM–11PM',  vendor: 'Digitech', ch: 'Email' },
+  'ayush jangid':            { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Email' },
+  'ayush mokal':             { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Email' },
+  'divyansh mishra':         { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Email' },
+  'prateek govila':          { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Email' },
+  'swapna mishra':           { shift: 'Night',     time: '10PM–7AM',  vendor: 'Inhouse',  ch: 'Email' },
+};
+function rosterInfo(email) {
+  const key = displayName(email).toLowerCase().replace(/\s+/g, ' ').trim();
+  return ROSTER[key] || null;
 }
 
 // Returns { sortKey, label, dateStr, startStr, endStr } for a timestamp
@@ -181,7 +308,6 @@ function slotMeta(timestamp) {
       const dateStr = d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
       const startStr = `${pad(h)}:00 ${ampmS}`;
       const endStr   = `${pad((h+1)%24)}:00 ${ampmE}`;
-      // sortKey: descending by date+hour
       const sortKey = `${d.getFullYear()}${pad(d.getMonth())}${pad(d.getDate())}${pad(h)}`;
       return { sortKey, label, dateStr, startStr, endStr };
     }
@@ -193,12 +319,13 @@ function renderAll(data) {
   allData = data || {};
   const board = document.getElementById('board');
 
-  // Flatten all entries
+  // Flatten + validate + date filter
   const allEntries = [];
   for (const agentKey of Object.keys(allData)) {
     for (const entry of Object.values(allData[agentKey])) {
       if (!entry || !entry.ticketId) continue;
       if (/^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) continue;
+      if (!entryMatchesDate(entry)) continue;
       allEntries.push({ ...entry, _agentKey: agentKey });
     }
   }
@@ -213,11 +340,17 @@ function renderAll(data) {
   document.getElementById('summary').style.display = 'flex';
   document.getElementById('exportBtn').classList.add('active');
 
+  const activeAgentKeys = new Set(allEntries.map(e => e._agentKey));
+  document.getElementById('cAgents').textContent   = activeAgentKeys.size;
+  document.getElementById('cTotal').textContent    = allEntries.length;
+  document.getElementById('cResolved').textContent = allEntries.filter(e => e.status === 'Resolved').length;
+  document.getElementById('cOnHold').textContent   = allEntries.filter(e => e.status === 'On Hold').length;
+
   // Preserve open panels
   const openSlots = new Set();
   board.querySelectorAll('.slot-report.open').forEach(el => openSlots.add(el.dataset.slot));
 
-  // Group by slot
+  // Group by shift bracket
   const slots = {};
   for (const entry of allEntries) {
     const meta = slotMeta(entry.timestamp);
@@ -225,26 +358,16 @@ function renderAll(data) {
     slots[meta.sortKey].entries.push(entry);
   }
 
-  // Sort slots newest first
+  // Sort newest first
   const sortedSlotKeys = Object.keys(slots).sort((a, b) => b.localeCompare(a));
-
-  // Summary
-  const agentKeys = Object.keys(allData);
-  const totalTickets  = allEntries.length;
-  const totalResolved = allEntries.filter(e => e.status === 'Resolved').length;
-  const totalOnHold   = allEntries.filter(e => e.status === 'On Hold').length;
-  document.getElementById('cAgents').textContent   = agentKeys.length;
-  document.getElementById('cTotal').textContent    = totalTickets;
-  document.getElementById('cResolved').textContent = totalResolved;
-  document.getElementById('cOnHold').textContent   = totalOnHold;
 
   const html = sortedSlotKeys.map(slotKey => {
     const { meta, entries } = slots[slotKey];
-    const isOpen = openSlots.has(slotKey);
+    const isOpen   = openSlots.has(slotKey);
     const resolved = entries.filter(e => e.status === 'Resolved').length;
     const onhold   = entries.filter(e => e.status === 'On Hold').length;
 
-    // Build per-agent counts for this slot
+    // Per-agent counts for this slot
     const agentMap = {};
     for (const entry of entries) {
       const email = entry.agentEmail || entry._agentKey;
@@ -254,7 +377,7 @@ function renderAll(data) {
       if (entry.status === 'Resolved') agentMap[key].resolved++;
       else agentMap[key].onhold++;
     }
-    const agents = Object.values(agentMap).sort((a, b) => b.count - a.count);
+    const agents   = Object.values(agentMap).sort((a, b) => b.count - a.count);
     const maxCount = agents[0]?.count || 1;
 
     const agentRows = agents.map((a, i) => {
@@ -355,6 +478,7 @@ function connect() {
   };
 }
 
+document.getElementById('datePicker').value = activeDateFilter;
 connect();
 
 // ── Heartbeat SSE ──
@@ -376,33 +500,82 @@ connectHeartbeats();
 function showAgentsModal() {
   const now = Date.now();
   const twoMin = 2 * 60 * 1000;
-  const agents = Object.entries(allData).map(([key, entries]) => {
-    const list = Object.values(entries).filter(e => e && e.ticketId);
-    const resolved = list.filter(e => e.status === 'Resolved').length;
-    const onhold   = list.filter(e => e.status === 'On Hold').length;
-    const email    = list[0]?.agentEmail || key;
-    const hb       = liveHeartbeats[key];
-    const isLive   = hb && (now - hb.lastSeen) < twoMin;
-    return { key, email, total: list.length, resolved, onhold, isLive };
-  }).sort((a, b) => b.total - a.total);
+
+  // Build map of agents who have logged entries
+  const loggedMap = {};
+  for (const [key, entries] of Object.entries(allData)) {
+    const list = Object.values(entries).filter(e => e && e.ticketId && !/^Ticket-\d+$/i.test(e.ticketId) && /^\d{1,5}$/.test(e.ticketId));
+    if (!list.length) continue;
+    const email = list[0]?.agentEmail || key;
+    const hb    = liveHeartbeats[key];
+    loggedMap[displayName(email).toLowerCase()] = {
+      key, email,
+      total:    list.length,
+      resolved: list.filter(e => e.status === 'Resolved').length,
+      onhold:   list.filter(e => e.status === 'On Hold').length,
+      isLive:   hb && (now - hb.lastSeen) < twoMin,
+    };
+  }
+
+  // Merge with full roster — roster agents not yet logged show as 0
+  const seen = new Set();
+  const agents = [];
+  // First: logged agents
+  for (const a of Object.values(loggedMap)) {
+    const nameKey = displayName(a.email).toLowerCase();
+    seen.add(nameKey);
+    agents.push(a);
+  }
+  agents.sort((a, b) => b.total - a.total);
 
   const liveCount = agents.filter(a => a.isLive).length;
   document.getElementById('mag-live-count').textContent = liveCount + ' online now';
 
-  document.getElementById('mag-list').innerHTML = agents.map(a => `
-    <div class="mag-row">
-      <div class="mag-dot ${a.isLive ? 'live' : ''}"></div>
-      <div class="mag-avatar" style="background:${avatarColor(a.key)}">${initials(a.email)}</div>
-      <div class="mag-info">
-        <div class="mag-name">${displayName(a.email)}</div>
-        <div class="mag-stats">
-          ${a.resolved ? `<span class="res">${a.resolved} resolved</span>` : ''}
-          ${a.onhold   ? `<span class="hld"> · ${a.onhold} on hold</span>` : ''}
-        </div>
-      </div>
-      <div class="mag-total">${a.total}</div>
-    </div>`).join('');
+  // Build shift tabs from unique shifts present
+  const shiftOrder = ['Morning 1','Morning 2','Evening 1','Evening 2','Evening 3','Evening 4','Night'];
+  const shiftsPresent = ['All', ...shiftOrder.filter(s => agents.some(a => {
+    const ri = rosterInfo(a.email);
+    return ri && ri.shift === s;
+  }))];
 
+  let activeShiftTab = 'All';
+
+  function renderModalList() {
+    const filtered = activeShiftTab === 'All' ? agents : agents.filter(a => {
+      const ri = rosterInfo(a.email);
+      return ri && ri.shift === activeShiftTab;
+    });
+    document.getElementById('mag-list').innerHTML = filtered.map(a => {
+      const ri      = rosterInfo(a.email);
+      const name    = displayName(a.email);
+      const subLine = ri ? `<span class="shift-tag">${ri.shift} · ${ri.time}</span>` : '';
+      const statsLine = `${a.resolved ? `<span class="res">${a.resolved} resolved</span>` : ''}${a.onhold ? `<span class="hld"> · ${a.onhold} on hold</span>` : ''}`;
+      return `
+      <div class="mag-row">
+        <div class="mag-dot ${a.isLive ? 'live' : ''}"></div>
+        <div class="mag-avatar" style="background:${avatarColor(a.key)}">${name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>
+        <div class="mag-info">
+          <div class="mag-name">${name}</div>
+          <div class="mag-stats">${statsLine}</div>
+          ${subLine ? `<div class="mag-sub">${subLine}</div>` : ''}
+        </div>
+        <div class="mag-total">${a.total}</div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('mag-shift-tabs').innerHTML = shiftsPresent.map(s => `
+    <button class="mag-tab ${s === activeShiftTab ? 'active' : ''}" onclick="setModalShift('${s}')">${s}</button>
+  `).join('');
+
+  window._modalAgents = agents;
+  window.setModalShift = function(s) {
+    activeShiftTab = s;
+    document.querySelectorAll('.mag-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === s));
+    renderModalList();
+  };
+
+  renderModalList();
   document.getElementById('mag-overlay').style.display = 'flex';
 }
 
@@ -413,9 +586,10 @@ function closeAgentsModal() {
 function extractCSV() {
   if (!Object.keys(allData).length) return;
   const rows = [['Time Slot','Date','Agent','Email','Ticket','Status','Timestamp']];
-  const allEntries = [];
   for (const agentKey of Object.keys(allData)) {
     for (const entry of Object.values(allData[agentKey])) {
+      if (!entry || !entry.ticketId) continue;
+      if (/^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) continue;
       const meta = slotMeta(entry.timestamp);
       rows.push([meta.label, meta.dateStr, displayName(entry.agentEmail||agentKey), entry.agentEmail||agentKey, entry.ticketId, entry.status, entry.timestamp]);
     }
