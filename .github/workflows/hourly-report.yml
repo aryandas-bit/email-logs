@@ -1,7 +1,9 @@
 name: Hourly Ticket Report
 
 on:
-  workflow_dispatch:  # triggered by cron-job.org every hour at :35 UTC = :05 IST
+  schedule:
+    - cron: '35 * * * *'  # :35 UTC = :05 IST every hour
+  workflow_dispatch:
 
 jobs:
   post-report:
