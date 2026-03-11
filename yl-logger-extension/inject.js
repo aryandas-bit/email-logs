@@ -35,15 +35,15 @@
   function getTicketInfo(apiUrl, body) {
     // 1. API URL — ticket number in path or query
     if (apiUrl) {
-      const m = apiUrl.match(/\/tickets?\/(\d{3,5})/i) ||
-                apiUrl.match(/[?&]ticket[_-]?id=(\d{3,5})/i);
+      const m = apiUrl.match(/\/tickets?\/(\d{1,5})/i) ||
+                apiUrl.match(/[?&]ticket[_-]?id=(\d{1,5})/i);
       if (m) return m[1];
     }
     // 2. Request body — "ticketId":4107 or "id":4107 etc.
     if (body) {
       const s = typeof body === 'string' ? body : JSON.stringify(body);
-      const m = s.match(/"ticket[_-]?id"\s*:\s*(\d{3,5})/i) ||
-                s.match(/"ticketId"\s*:\s*"(\d{3,5})"/i);
+      const m = s.match(/"ticket[_-]?id"\s*:\s*(\d{1,5})/i) ||
+                s.match(/"ticketId"\s*:\s*"(\d{1,5})"/i);
       if (m) return m[1];
     }
     // Do NOT fall back to page URL or DOM — that causes false positives when
