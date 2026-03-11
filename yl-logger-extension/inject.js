@@ -6,6 +6,24 @@
   let agentEmail = null;
   const recentLogs = {}; // ticketId+status → timestamp, prevents duplicate fires
 
+  // ── Heartbeat ──
+  const HB_URL = 'https://yl-logs-default-rtdb.firebaseio.com/heartbeats';
+  let _hbInterval = null;
+  function sendHeartbeat() {
+    if (!agentEmail) return;
+    const key = agentEmail.replace(/[@.]/g, '_');
+    fetch(`${HB_URL}/${key}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: agentEmail, lastSeen: Date.now() })
+    }).catch(() => {});
+  }
+  function startHeartbeat() {
+    if (_hbInterval) return;
+    sendHeartbeat();
+    _hbInterval = setInterval(sendHeartbeat, 60000);
+  }
+
   function makeTimestamp() {
     return new Date().toLocaleString('en-IN', {
       year: 'numeric', month: 'short', day: '2-digit',
@@ -30,17 +48,8 @@
                 s.match(/"uid"\s*:\s*"?(\d{4,})"?/i);
       if (m) return m[1];
     }
-    // 3. Current page URL
-    const urlMatch = location.pathname.match(/\/(\d{4,})(?:\/|$)/);
-    if (urlMatch) return urlMatch[1];
-    // 4. DOM scan for visible ticket number
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    let node;
-    while ((node = walker.nextNode())) {
-      const m = node.nodeValue.match(/#(\d{4,})\b/) ||
-                node.nodeValue.match(/\bticket[:\s#]*(\d{4,})/i);
-      if (m) return m[1];
-    }
+    // Do NOT fall back to page URL or DOM — that causes false positives when
+    // an agent is merely viewing a ticket while an unrelated API call fires
     return null;
   }
 
@@ -53,7 +62,7 @@
   function sniffEmail(text) {
     if (agentEmail) return;
     const e = extractUltraEmail(text);
-    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected:', e); }
+    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected:', e); startHeartbeat(); }
   }
 
   function detectAgentEmail() {
