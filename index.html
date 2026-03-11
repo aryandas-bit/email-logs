@@ -504,7 +504,7 @@ function showAgentsModal() {
   // Build map of agents who have logged entries
   const loggedMap = {};
   for (const [key, entries] of Object.entries(allData)) {
-    const list = Object.values(entries).filter(e => e && e.ticketId && !/^Ticket-\d+$/i.test(e.ticketId) && /^\d{1,5}$/.test(e.ticketId));
+    const list = Object.values(entries).filter(e => e && e.ticketId && !/^Ticket-\d+$/i.test(e.ticketId) && /^\d{1,5}$/.test(e.ticketId) && entryMatchesDate(e));
     if (!list.length) continue;
     const email = list[0]?.agentEmail || key;
     const hb    = liveHeartbeats[key];
