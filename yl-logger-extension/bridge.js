@@ -30,6 +30,9 @@ window.addEventListener('message', function (e) {
 
   const entry = e.data.entry;
 
+  // Block fake entries with auto-generated Ticket-XXXXX IDs (old extension bug)
+  if (!entry.ticketId || /^Ticket-\d+$/i.test(entry.ticketId)) return;
+
   // Synchronous dedup — block duplicate Firebase pushes within 10 minutes
   const key = entry.ticketId + '|' + entry.status;
   const now = Date.now();
