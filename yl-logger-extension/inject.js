@@ -35,9 +35,8 @@
   function getTicketInfo(apiUrl, body) {
     // 1. API URL — ticket number in path or query
     if (apiUrl) {
-      const m = apiUrl.match(/\/tickets?\/(\d+)/i) ||
-                apiUrl.match(/[?&]ticket[_-]?id=(\d+)/i) ||
-                apiUrl.match(/\/(\d{4,})/);
+      const m = apiUrl.match(/\/tickets?\/(\d{3,5})/i) ||
+                apiUrl.match(/[?&]ticket[_-]?id=(\d{3,5})/i);
       if (m) return m[1];
     }
     // 2. Request body — "ticketId":4107 or "id":4107 etc.
