@@ -586,97 +586,33 @@ function closeAgentsModal() {
 function extractShiftReport() {
   if (!Object.keys(allData).length) return;
 
-  // Parse shift time string like "5PM–2AM" into start/end hours (24h)
-  function parseShiftHours(timeStr) {
-    if (!timeStr) return null;
-    const m = timeStr.match(/(\d+)(AM|PM)[–\-](\d+)(AM|PM)/i);
-    if (!m) return null;
-    let [, sh, sa, eh, ea] = m;
-    sh = parseInt(sh); eh = parseInt(eh);
-    if (sa.toUpperCase() === 'PM' && sh !== 12) sh += 12;
-    if (sa.toUpperCase() === 'AM' && sh === 12) sh = 0;
-    if (ea.toUpperCase() === 'PM' && eh !== 12) eh += 12;
-    if (ea.toUpperCase() === 'AM' && eh === 12) eh = 0;
-    return { start: sh, end: eh };
-  }
-
-  // Build hourly slots for a shift (handles overnight shifts like 5PM–2AM)
-  function shiftSlots(timeStr) {
-    const h = parseShiftHours(timeStr);
-    if (!h) return null;
-    const slots = [];
-    let cur = h.start;
-    while (cur !== h.end) {
-      const next = (cur + 1) % 24;
-      const fmt = h => {
-        if (h === 0) return '12 AM';
-        if (h === 12) return '12 PM';
-        return h < 12 ? `${h} AM` : `${h - 12} PM`;
-      };
-      slots.push({ label: `${fmt(cur)}–${fmt(next)}`, hour: cur });
-      cur = next;
-    }
-    return slots;
-  }
-
-  // Collect all entries per agent per date per hour
-  const agentData = {}; // agentKey → date → hour → {resolved, onhold}
+  const agentTotals = {}; // email → {resolved, onhold}
   for (const agentKey of Object.keys(allData)) {
     for (const entry of Object.values(allData[agentKey])) {
       if (!entry || !entry.ticketId) continue;
       if (/^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) continue;
-      const ts = entry.timestamp || '';
-      let entryDate, entryHour;
-      try {
-        const d = new Date(ts.replace(/(\d+) (\w+) (\d+), (.+)/, '$2 $1, $3, $4'));
-        entryDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        entryHour = d.getHours();
-        if (isNaN(entryHour)) throw new Error();
-      } catch {
-        entryDate = ts.split(',')[0].trim();
-        const hm = ts.match(/(\d+):(\d+):\d+\s*(am|pm)/i);
-        if (!hm) continue;
-        entryHour = parseInt(hm[1]);
-        if (hm[3].toLowerCase() === 'pm' && entryHour !== 12) entryHour += 12;
-        if (hm[3].toLowerCase() === 'am' && entryHour === 12) entryHour = 0;
-      }
+      if (!entryMatchesDate(entry)) continue;
       const email = entry.agentEmail || agentKey;
-      if (!agentData[email]) agentData[email] = {};
-      if (!agentData[email][entryDate]) agentData[email][entryDate] = {};
-      if (!agentData[email][entryDate][entryHour]) agentData[email][entryDate][entryHour] = { resolved: 0, onhold: 0 };
-      if (entry.status === 'Resolved') agentData[email][entryDate][entryHour].resolved++;
-      else if (entry.status === 'On Hold') agentData[email][entryDate][entryHour].onhold++;
+      if (!agentTotals[email]) agentTotals[email] = { resolved: 0, onhold: 0 };
+      if (entry.status === 'Resolved') agentTotals[email].resolved++;
+      else if (entry.status === 'On Hold') agentTotals[email].onhold++;
     }
   }
 
-  const rows = [['Agent', 'Date', 'Shift', 'Hour Slot', 'Resolved', 'On Hold', 'Total']];
-  for (const [email, dates] of Object.entries(agentData)) {
+  const dateLabel = activeDateFilter || 'All Dates';
+  const rows = [['Agent', 'Date', 'Shift', 'Resolved', 'On Hold', 'Total']];
+  const sorted = Object.entries(agentTotals).sort((a, b) => (b[1].resolved + b[1].onhold) - (a[1].resolved + a[1].onhold));
+  for (const [email, h] of sorted) {
     const name = displayName(email);
     const ri = rosterInfo(email);
-    const shift = ri ? ri.shift : 'Unknown';
-    const shiftTime = ri ? ri.time : '';
-    const slots = shiftSlots(shiftTime);
-    for (const [date, hours] of Object.entries(dates)) {
-      if (slots) {
-        for (const slot of slots) {
-          const h = hours[slot.hour] || { resolved: 0, onhold: 0 };
-          if (h.resolved + h.onhold === 0) continue;
-          rows.push([name, date, `${shift} (${shiftTime})`, slot.label, h.resolved, h.onhold, h.resolved + h.onhold]);
-        }
-      } else {
-        // No roster info — just dump all hours
-        for (const [hour, h] of Object.entries(hours)) {
-          const fmt = h => h == 0 ? '12 AM' : h < 12 ? `${h} AM` : h == 12 ? '12 PM' : `${h-12} PM`;
-          rows.push([name, date, 'Unknown', `${fmt(parseInt(hour))}–${fmt((parseInt(hour)+1)%24)}`, h.resolved, h.onhold, h.resolved + h.onhold]);
-        }
-      }
-    }
+    const shift = ri ? `${ri.shift} (${ri.time})` : 'Unknown';
+    rows.push([name, dateLabel, shift, h.resolved, h.onhold, h.resolved + h.onhold]);
   }
 
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-  a.download = `shift_report_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `shift_report_${dateLabel}.csv`;
   a.click();
 }
 
