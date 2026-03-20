@@ -9,17 +9,34 @@
   // ── Heartbeat ──
   const HB_URL = 'https://yl-logs-default-rtdb.firebaseio.com/heartbeats';
   let _hbInterval = null;
+  let _attendanceDay = null;
+  let _firstSeenAt = null;
+  function currentIstDayKey() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  }
   function sendHeartbeat() {
     if (!agentEmail) return;
+    const dayKey = currentIstDayKey();
+    if (_attendanceDay !== dayKey) {
+      _attendanceDay = dayKey;
+      _firstSeenAt = Date.now();
+    }
     const key = agentEmail.replace(/[@.]/g, '_');
     fetch(`${HB_URL}/${key}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: agentEmail, lastSeen: Date.now() })
+      body: JSON.stringify({
+        email: agentEmail,
+        lastSeen: Date.now(),
+        attendanceDate: _attendanceDay,
+        firstSeenAt: _firstSeenAt
+      })
     }).catch(() => {});
   }
   function startHeartbeat() {
     if (_hbInterval) return;
+    _attendanceDay = currentIstDayKey();
+    _firstSeenAt = Date.now();
     sendHeartbeat();
     _hbInterval = setInterval(sendHeartbeat, 60000);
   }
@@ -32,23 +49,45 @@
     });
   }
 
-  function getTicketInfo(apiUrl, body) {
-    // 1. API URL — ticket number in path or query
-    if (apiUrl) {
-      const m = apiUrl.match(/\/tickets?\/(\d{1,5})/i) ||
-                apiUrl.match(/[?&]ticket[_-]?id=(\d{1,5})/i);
+  function extractTicketIdFromText(text) {
+    if (!text) return null;
+    const s = String(text);
+    const patterns = [
+      /\/tickets?\/(\d{1,6})(?:\D|$)/i,
+      /[?&](?:ticket[_-]?id|ticketId|conversationId|conversation_id|id)=(\d{1,6})(?:\D|$)/i,
+      /"(?:ticket[_-]?id|ticketId|conversationId|conversation_id|ticketNumber|ticket_no|ticketNo|id)"\s*:\s*"?(\d{1,6})"?/i,
+      /"(?:ticket|conversation)"\s*:\s*\{[^{}]*"id"\s*:\s*"?(\d{1,6})"?/i,
+      /\b(?:ticket|conversation)[^\d]{0,20}#?(\d{3,6})\b/i
+    ];
+    for (const pattern of patterns) {
+      const m = s.match(pattern);
       if (m) return m[1];
     }
-    // 2. Request body — "ticketId":4107 or "id":4107 etc.
+    return null;
+  }
+
+  function getTicketFromPageContext() {
+    try {
+      const href = window.location.href || '';
+      if (!/ticket|conversation/i.test(href)) return null;
+      return extractTicketIdFromText(href);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function getTicketInfo(apiUrl, body) {
+    const fromUrl = extractTicketIdFromText(apiUrl);
+    if (fromUrl) return fromUrl;
+
     if (body) {
       const s = typeof body === 'string' ? body : JSON.stringify(body);
-      const m = s.match(/"ticket[_-]?id"\s*:\s*(\d{1,5})/i) ||
-                s.match(/"ticketId"\s*:\s*"(\d{1,5})"/i);
-      if (m) return m[1];
+      const fromBody = extractTicketIdFromText(s);
+      if (fromBody) return fromBody;
     }
-    // Do NOT fall back to page URL or DOM — that causes false positives when
-    // an agent is merely viewing a ticket while an unrelated API call fires
-    return null;
+
+    // Only use page context when we are explicitly on a ticket/conversation page.
+    return getTicketFromPageContext();
   }
 
   function extractUltraEmail(str) {
@@ -123,7 +162,15 @@
 
   function logEntry(status, apiUrl, body) {
     const ticketId = getTicketInfo(apiUrl, body);
-    if (!ticketId) { console.log('[YL-Logger] Skipped: could not identify ticket ID'); return; }
+    if (!ticketId) {
+      console.log('[YL-Logger] Skipped: could not identify ticket ID', {
+        status,
+        apiUrl: apiUrl || null,
+        hasBody: Boolean(body),
+        page: window.location.href
+      });
+      return;
+    }
     const key = ticketId + '|' + status;
     const now = Date.now();
     // Suppress duplicate fires within 10 minutes for the same ticket+status
@@ -135,6 +182,36 @@
     const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
     showToast((status === 'Resolved' ? '✓' : '⏸') + ' Logged: ' + ticketId + ' · ' + agent.split('@')[0], color);
     console.log('[YL-Logger] Logged:', status, ticketId, '| agent:', agent);
+  }
+
+  function manualLogEntry(ticketId, status, agentOverride) {
+    const normalizedTicketId = String(ticketId || '').trim();
+    const normalizedStatus = status === 'On Hold' ? 'On Hold' : 'Resolved';
+    if (!/^\d{1,5}$/.test(normalizedTicketId)) {
+      console.warn('[YL-Logger] Manual log rejected: invalid ticket ID', ticketId);
+      return false;
+    }
+
+    if (agentOverride) {
+      const manualEmail = extractUltraEmail(agentOverride);
+      if (manualEmail) agentEmail = manualEmail;
+    }
+
+    const agent = detectAgentEmail() || 'unknown';
+    const now = Date.now();
+    const entry = {
+      id: now,
+      ticketId: normalizedTicketId,
+      timestamp: makeTimestamp(),
+      status: normalizedStatus,
+      agentEmail: agent
+    };
+
+    window.postMessage({ type: 'yl-log-entry', entry }, '*');
+    const color = normalizedStatus === 'Resolved' ? '#2e7d32' : '#f5a623';
+    showToast((normalizedStatus === 'Resolved' ? '✓' : '⏸') + ' Logged: ' + normalizedTicketId + ' · ' + agent.split('@')[0], color);
+    console.log('[YL-Logger] Manual log:', normalizedStatus, normalizedTicketId, '| agent:', agent);
+    return true;
   }
 
   // ── Intercept fetch — sniff email from ALL responses ──
@@ -208,6 +285,10 @@
       setTimeout(() => logEntry('On Hold'), 600);
     }
   }, true);
+
+  window.YLLoggerManual = {
+    log: manualLogEntry
+  };
 
   console.log('[YL-Logger] Interceptors active on Yellow.ai');
 })();

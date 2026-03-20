@@ -37,6 +37,10 @@
   .date-input:focus { outline: none; border-color: #5c6bc0; }
   .date-clear { padding: 8px 10px; border-radius: 8px; border: 1.5px solid #e8e8e8; background: #fff; font-size: 12px; font-weight: 600; color: #aaa; cursor: pointer; }
   .date-clear:hover { border-color: #bbb; color: #555; }
+  .view-tabs { display: inline-flex; gap: 6px; padding: 5px; background: #fff; border-radius: 12px; box-shadow: 0 1px 5px rgba(0,0,0,0.07); }
+  .view-tab { padding: 8px 14px; border-radius: 9px; border: none; background: transparent; color: #777; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .view-tab.active { background: #1a1a2e; color: #fff; }
+  .view-tab:hover:not(.active) { background: #f5f6f8; color: #333; }
 
   /* Summary cards */
   .summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -46,6 +50,8 @@
   .card .value.green { color: #2e7d32; }
   .card .value.orange { color: #e65100; }
   .card .value.blue { color: #1565c0; }
+  .card .value.red { color: #c62828; }
+  .card .value.gray { color: #616161; }
 
   /* Slot card */
   .slot-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); margin-bottom: 14px; overflow: hidden; }
@@ -113,6 +119,30 @@
   .mag-sub { font-size: 10px; color: #bbb; margin-top: 2px; }
   .mag-sub .shift-tag { font-weight: 600; color: #888; }
   .mag-total { font-size: 16px; font-weight: 700; color: #1a1a2e; flex-shrink: 0; }
+
+  .att-note { font-size: 12px; color: #7a7a7a; margin: -8px 0 18px; }
+  .att-board { display: grid; gap: 14px; }
+  .att-group { background: #fff; border-radius: 14px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); overflow: hidden; }
+  .att-group-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #f2f2f2; }
+  .att-group-title { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+  .att-group-sub { font-size: 12px; color: #8a8a8a; margin-top: 3px; }
+  .att-group-meta { font-size: 12px; font-weight: 700; color: #2e7d32; }
+  .att-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #f7f7f7; }
+  .att-row:last-child { border-bottom: none; }
+  .att-presence { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: #d0d0d0; }
+  .att-presence.present { background: #2e7d32; box-shadow: 0 0 0 4px rgba(46,125,50,0.12); }
+  .att-presence.offline { background: #c62828; box-shadow: 0 0 0 4px rgba(198,40,40,0.08); }
+  .att-presence.idle { background: #ef6c00; box-shadow: 0 0 0 4px rgba(239,108,0,0.08); }
+  .att-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .att-info { flex: 1; min-width: 0; }
+  .att-name { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+  .att-sub { font-size: 11px; color: #8c8c8c; margin-top: 3px; }
+  .att-status { text-align: right; flex-shrink: 0; }
+  .att-status-label { font-size: 12px; font-weight: 700; }
+  .att-status-label.present { color: #2e7d32; }
+  .att-status-label.idle { color: #ef6c00; }
+  .att-status-label.offline { color: #c62828; }
+  .att-status-time { font-size: 11px; color: #999; margin-top: 3px; }
 </style>
 </head>
 <body>
@@ -127,6 +157,10 @@
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="view-tabs">
+        <button class="view-tab active" id="tabLogs" onclick="setView('logs')">Ticket Log</button>
+        <button class="view-tab" id="tabAttendance" onclick="setView('attendance')">Attendance</button>
+      </div>
       <div class="date-wrap">
         <input class="date-input" type="date" id="datePicker" onchange="setDateFilter(this.value)">
         <button class="date-clear" onclick="setDateFilter('')" title="Show all dates">All</button>
@@ -141,6 +175,17 @@
     <div class="card"><div class="label">Total</div><div class="value" id="cTotal">0</div></div>
     <div class="card"><div class="label">Resolved</div><div class="value green" id="cResolved">0</div></div>
     <div class="card"><div class="label">On Hold</div><div class="value orange" id="cOnHold">0</div></div>
+  </div>
+
+  <div class="summary" id="attendanceSummary" style="display:none">
+    <div class="card"><div class="label">Roster</div><div class="value blue" id="aRoster">0</div></div>
+    <div class="card"><div class="label">Present</div><div class="value green" id="aPresent">0</div></div>
+    <div class="card"><div class="label">Idle</div><div class="value orange" id="aIdle">0</div></div>
+    <div class="card"><div class="label">Absent</div><div class="value red" id="aAbsent">0</div></div>
+  </div>
+
+  <div class="att-note" id="attendanceNote" style="display:none">
+    Attendance is marked from Yellow.ai heartbeat activity. Present means the agent opened Yellow and was active today.
   </div>
 
   <!-- Agents modal -->
@@ -172,11 +217,40 @@ const FIREBASE_URL = 'https://yl-logs-default-rtdb.firebaseio.com';
 let allData = {};
 let liveHeartbeats = {};
 let activeDateFilter = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD, default today
+let activeView = 'logs';
 
 function setDateFilter(val) {
   activeDateFilter = val;
   document.getElementById('datePicker').value = val;
-  renderAll(allData);
+  render();
+}
+
+function istNow() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+}
+
+function todayIstKey() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+function formatAttendanceTime(ts) {
+  if (!ts) return 'Not seen';
+  return new Date(ts).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  });
+}
+
+function setView(view) {
+  activeView = view;
+  document.getElementById('tabLogs').classList.toggle('active', view === 'logs');
+  document.getElementById('tabAttendance').classList.toggle('active', view === 'attendance');
+  document.getElementById('datePicker').disabled = view === 'attendance';
+  document.getElementById('exportBtn').style.display = view === 'logs' ? '' : 'none';
+  document.getElementById('shiftReportBtn').style.display = view === 'logs' ? '' : 'none';
+  render();
 }
 
 function entryMatchesDate(entry) {
@@ -317,7 +391,19 @@ function slotMeta(timestamp) {
 
 function renderAll(data) {
   allData = data || {};
+  render();
+}
+
+function render() {
+  if (activeView === 'attendance') renderAttendance();
+  else renderLogBoard();
+}
+
+function renderLogBoard() {
   const board = document.getElementById('board');
+  document.getElementById('summary').style.display = 'none';
+  document.getElementById('attendanceSummary').style.display = 'none';
+  document.getElementById('attendanceNote').style.display = 'none';
 
   // Flatten + validate + date filter
   const allEntries = [];
@@ -493,9 +579,112 @@ function connectHeartbeats() {
       if (msg.data === null) delete liveHeartbeats[key];
       else liveHeartbeats[key] = msg.data;
     }
+    if (activeView === 'attendance') renderAttendance();
   });
 }
 connectHeartbeats();
+
+function renderAttendance() {
+  const board = document.getElementById('board');
+  const todayKey = todayIstKey();
+  const selectedDate = activeDateFilter || todayKey;
+  document.getElementById('summary').style.display = 'none';
+  document.getElementById('attendanceSummary').style.display = 'flex';
+  document.getElementById('attendanceNote').style.display = 'block';
+
+  if (selectedDate !== todayKey) {
+    document.getElementById('attendanceSummary').style.display = 'none';
+    board.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">Attendance is live-only</strong><p>Attendance uses today's heartbeat activity and is available only for ${todayKey}.</p></div>`;
+    return;
+  }
+
+  const rosterEmails = {};
+  for (const name of Object.keys(ROSTER)) {
+    rosterEmails[name] = true;
+  }
+
+  const heartbeatEmails = Object.values(liveHeartbeats)
+    .map(hb => hb && hb.email)
+    .filter(Boolean)
+    .map(email => displayName(email).toLowerCase());
+
+  const allNames = Array.from(new Set([
+    ...Object.keys(ROSTER),
+    ...heartbeatEmails
+  ])).sort((a, b) => a.localeCompare(b));
+
+  const now = Date.now();
+  const presentWindow = 2 * 60 * 1000;
+  const idleWindow = 15 * 60 * 1000;
+  const attendanceRows = allNames.map(nameKey => {
+    const hb = Object.values(liveHeartbeats).find(item =>
+      item && item.email && displayName(item.email).toLowerCase() === nameKey && item.attendanceDate === todayKey
+    ) || null;
+    const email = hb?.email || `${nameKey.replace(/\s+/g, '.')}@unknown`;
+    const ri = ROSTER[nameKey] || null;
+    const firstSeenAt = hb?.firstSeenAt || null;
+    const lastSeen = hb?.lastSeen || null;
+    let state = 'offline';
+    if (lastSeen && now - lastSeen < presentWindow) state = 'present';
+    else if (lastSeen && now - lastSeen < idleWindow) state = 'idle';
+    return { nameKey, email, roster: ri, firstSeenAt, lastSeen, state };
+  });
+
+  const presentCount = attendanceRows.filter(a => a.state === 'present').length;
+  const idleCount = attendanceRows.filter(a => a.state === 'idle').length;
+  const absentCount = attendanceRows.filter(a => a.state === 'offline').length;
+  document.getElementById('aRoster').textContent = attendanceRows.length;
+  document.getElementById('aPresent').textContent = presentCount;
+  document.getElementById('aIdle').textContent = idleCount;
+  document.getElementById('aAbsent').textContent = absentCount;
+
+  const shiftOrder = ['Morning 1','Morning 2','Evening 1','Evening 2','Evening 3','Evening 4','Night','Unknown'];
+  const groups = {};
+  for (const row of attendanceRows) {
+    const shift = row.roster?.shift || 'Unknown';
+    if (!groups[shift]) groups[shift] = [];
+    groups[shift].push(row);
+  }
+
+  const sortedGroups = shiftOrder.filter(shift => groups[shift] && groups[shift].length);
+  const html = sortedGroups.map(shift => {
+    const rows = groups[shift].sort((a, b) => {
+      const rank = { present: 0, idle: 1, offline: 2 };
+      if (rank[a.state] !== rank[b.state]) return rank[a.state] - rank[b.state];
+      return (a.firstSeenAt || Infinity) - (b.firstSeenAt || Infinity) || a.nameKey.localeCompare(b.nameKey);
+    });
+    const present = rows.filter(r => r.state !== 'offline').length;
+    return `
+      <div class="att-group">
+        <div class="att-group-header">
+          <div>
+            <div class="att-group-title">${shift}</div>
+            <div class="att-group-sub">${rows[0]?.roster?.time || 'No shift time mapped'}</div>
+          </div>
+          <div class="att-group-meta">${present}/${rows.length} present</div>
+        </div>
+        ${rows.map(row => {
+          const label = row.state === 'present' ? 'Present' : row.state === 'idle' ? 'Idle' : 'Absent';
+          const timeLabel = row.firstSeenAt ? `First seen ${formatAttendanceTime(row.firstSeenAt)}` : 'No heartbeat yet';
+          return `
+            <div class="att-row">
+              <div class="att-presence ${row.state}"></div>
+              <div class="att-avatar" style="background:${avatarColor(row.nameKey)}">${initials(row.email)}</div>
+              <div class="att-info">
+                <div class="att-name">${displayName(row.email)}</div>
+                <div class="att-sub">${row.roster ? `${row.roster.vendor} · ${row.roster.ch}` : 'Not in roster'}${row.lastSeen ? ` · Last seen ${formatAttendanceTime(row.lastSeen)}` : ''}</div>
+              </div>
+              <div class="att-status">
+                <div class="att-status-label ${row.state}">${label}</div>
+                <div class="att-status-time">${timeLabel}</div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+
+  board.innerHTML = html || `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No attendance yet</strong><p>Agents will appear here as soon as Yellow.ai heartbeats start coming in.</p></div>`;
+}
 
 function showAgentsModal() {
   const now = Date.now();

@@ -37,10 +37,6 @@ window.addEventListener('message', function (e) {
   const key = entry.ticketId + '|' + entry.status;
   const now = Date.now();
   if (recentPushes[key] && now - recentPushes[key] < 600000) return;
-  recentPushes[key] = now;
-
-  // Push to shared Firebase (always, regardless of local storage state)
-  pushToFirebase(entry);
 
   // Save locally (chrome.storage may be unavailable if extension context was invalidated)
   try {
@@ -49,7 +45,13 @@ window.addEventListener('message', function (e) {
       const entries = data.yl_entries;
       const recent = entries.filter(e => e.ticketId === entry.ticketId && e.status === entry.status &&
           entry.id - e.id < 600000);
-      if (recent.length > 0) return;
+      if (recent.length > 0) {
+        recentPushes[key] = recent[recent.length - 1].id || now;
+        return;
+      }
+
+      recentPushes[key] = now;
+      pushToFirebase(entry);
       entries.push(entry);
       chrome.storage.local.set({ yl_entries: entries }, function () {
         console.log('[YL-Logger] Saved to storage:', entry.status, entry.ticketId);
