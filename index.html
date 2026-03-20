@@ -123,11 +123,12 @@
   .att-note { font-size: 12px; color: #7a7a7a; margin: -8px 0 18px; }
   .att-board { display: grid; gap: 14px; }
   .att-group { background: #fff; border-radius: 14px; box-shadow: 0 1px 6px rgba(0,0,0,0.08); overflow: hidden; }
-  .att-group-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #f2f2f2; }
-  .att-group-title { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+  .att-group-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #f2f2f2; }
+  .att-group-header > div:first-child { min-width: 0; }
+  .att-group-title { font-size: 16px; font-weight: 700; color: #1a1a2e; overflow-wrap: anywhere; }
   .att-group-sub { font-size: 12px; color: #8a8a8a; margin-top: 3px; }
-  .att-group-meta { font-size: 12px; font-weight: 700; color: #2e7d32; }
-  .att-row { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #f7f7f7; }
+  .att-group-meta { font-size: 12px; font-weight: 700; color: #2e7d32; text-align: right; white-space: nowrap; }
+  .att-row { display: grid; grid-template-columns: 10px 34px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; row-gap: 8px; padding: 12px 18px; border-bottom: 1px solid #f7f7f7; }
   .att-row:last-child { border-bottom: none; }
   .att-presence { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: #d0d0d0; }
   .att-presence.present { background: #2e7d32; box-shadow: 0 0 0 4px rgba(46,125,50,0.12); }
@@ -135,9 +136,9 @@
   .att-presence.idle { background: #ef6c00; box-shadow: 0 0 0 4px rgba(239,108,0,0.08); }
   .att-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
   .att-info { flex: 1; min-width: 0; }
-  .att-name { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+  .att-name { font-size: 14px; font-weight: 700; color: #1a1a2e; overflow-wrap: anywhere; }
   .att-sub { font-size: 11px; color: #8c8c8c; margin-top: 3px; }
-  .att-status { text-align: right; flex-shrink: 0; min-width: 110px; }
+  .att-status { text-align: right; min-width: 110px; }
   .att-status-label { font-size: 12px; font-weight: 700; }
   .att-status-label.present { color: #2e7d32; }
   .att-status-label.idle { color: #ef6c00; }
@@ -145,14 +146,15 @@
   .att-status-time { font-size: 11px; color: #999; margin-top: 3px; }
 
   @media (max-width: 640px) {
-    .att-group-header { align-items: flex-start; flex-direction: column; }
-    .att-row { align-items: flex-start; flex-wrap: wrap; }
-    .att-info { min-width: 0; flex: 1 1 180px; }
+    .att-group-header { grid-template-columns: 1fr; }
+    .att-group-meta { text-align: left; white-space: normal; }
+    .att-row { grid-template-columns: 10px 34px minmax(0, 1fr); align-items: flex-start; }
+    .att-info { min-width: 0; }
     .att-status {
       min-width: 0;
-      width: 100%;
-      padding-left: 56px;
+      grid-column: 2 / 4;
       text-align: left;
+      padding-left: 0;
     }
   }
 </style>
@@ -695,7 +697,9 @@ function renderAttendance() {
       </div>`;
   }).join('');
 
-  board.innerHTML = html || `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No attendance yet</strong><p>Agents will appear here as soon as Yellow.ai heartbeats start coming in.</p></div>`;
+  board.innerHTML = html
+    ? `<div class="att-board">${html}</div>`
+    : `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No attendance yet</strong><p>Agents will appear here as soon as Yellow.ai heartbeats start coming in.</p></div>`;
 }
 
 function showAgentsModal() {
