@@ -11,6 +11,8 @@
   let _hbInterval = null;
   let _attendanceDay = null;
   let _firstSeenAt = null;
+  let _detectInterval = null;
+  let _availableInterval = null;
   function currentIstDayKey() {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   }
@@ -99,7 +101,65 @@
   function sniffEmail(text) {
     if (agentEmail) return;
     const e = extractUltraEmail(text);
-    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected:', e); startHeartbeat(); }
+    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected:', e); }
+  }
+
+  function sniffEmbeddedPageData() {
+    if (agentEmail) return agentEmail;
+    try {
+      const scripts = document.querySelectorAll('script');
+      for (const script of scripts) {
+        const txt = script.textContent;
+        if (!txt) continue;
+        sniffEmail(txt);
+        if (agentEmail) return agentEmail;
+      }
+    } catch (_) {}
+    return agentEmail;
+  }
+
+  function ensureAttendance(reason) {
+    const email = detectAgentEmail();
+    if (!email) {
+      console.log('[YL-Logger] Attendance pending: email not detected yet', reason || '');
+      return false;
+    }
+    startHeartbeat();
+    sendHeartbeat();
+    return true;
+  }
+
+  function isAvailableSignal(text) {
+    if (!text) return false;
+    return /"status"\s*:\s*"available"|\bset available\b|\bmark available\b|\bgo online\b|\bavailable\b/i.test(String(text));
+  }
+
+  function pageShowsAvailableStatus() {
+    try {
+      const nodes = document.querySelectorAll('button,[role="button"],[role="option"],[role="menuitem"],[aria-label],[title],div,span');
+      for (const node of nodes) {
+        const text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!text) continue;
+        if (/^available$/.test(text) || /^available [\u2303\u2304v^]?$/.test(text)) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function findActionElement(target) {
+    let el = target;
+    for (let depth = 0; el && depth < 6; depth++, el = el.parentElement) {
+      const text = (el.innerText || el.textContent || '').trim();
+      if (!text) continue;
+      if (
+        el.matches('button,[role="button"],li[role="menuitem"],[role="menuitem"],[role="option"],[role="listitem"]') ||
+        isAvailableSignal(text) ||
+        /^resolv|mark.*resolv|close ticket|on.?hold|put on hold/i.test(text)
+      ) {
+        return el;
+      }
+    }
+    return null;
   }
 
   function detectAgentEmail() {
@@ -128,7 +188,11 @@
     try { sniffEmail(document.cookie); } catch (_) {}
     if (agentEmail) return agentEmail;
 
-    // 4. Full DOM scan
+    // 4. Embedded page data / inline scripts
+    sniffEmbeddedPageData();
+    if (agentEmail) return agentEmail;
+
+    // 5. Full DOM scan
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
@@ -137,6 +201,25 @@
     }
 
     return null;
+  }
+
+  function startEmailDetectionLoop() {
+    if (_detectInterval) return;
+    _detectInterval = setInterval(() => {
+      if (agentEmail) {
+        clearInterval(_detectInterval);
+        _detectInterval = null;
+        return;
+      }
+      detectAgentEmail();
+    }, 2000);
+  }
+
+  function startAvailableDetectionLoop() {
+    if (_availableInterval) return;
+    _availableInterval = setInterval(() => {
+      if (pageShowsAvailableStatus()) ensureAttendance('dom-available');
+    }, 5000);
   }
 
   function showToast(msg, color) {
@@ -236,6 +319,9 @@
       try {
         let body = '';
         if (opts.body) body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
+        if (isAvailableSignal(url + ' ' + body)) {
+          setTimeout(() => ensureAttendance('fetch:' + url), 150);
+        }
         const combined = (url + ' ' + body).toLowerCase();
         if (/resolv|"status"\s*:\s*"resolved"/i.test(combined)) {
           setTimeout(() => logEntry('Resolved', url, body), 400);
@@ -267,6 +353,7 @@
     if (['POST', 'PUT', 'PATCH'].includes((this._ylMethod || '').toUpperCase()) && !/search|filter|list|query|export/i.test(this._ylUrl || '')) {
       try {
         const combined = ((this._ylUrl || '') + ' ' + (body || '')).toLowerCase();
+        if (isAvailableSignal(combined)) setTimeout(() => ensureAttendance('xhr:' + (this._ylUrl || '')), 150);
         if (/resolv/.test(combined)) setTimeout(() => logEntry('Resolved', this._ylUrl, body), 400);
         else if (/on.?hold|onhold/.test(combined)) setTimeout(() => logEntry('On Hold', this._ylUrl, body), 400);
       } catch (_) {}
@@ -276,9 +363,12 @@
 
   // ── Click fallback ──
   document.addEventListener('click', function (e) {
-    const el = e.target.closest('button,[role="button"],li[role="menuitem"]');
+    const el = findActionElement(e.target);
     if (!el) return;
     const text = (el.innerText || '').trim().toLowerCase();
+    if (isAvailableSignal(text)) {
+      setTimeout(() => ensureAttendance('click:' + text), 150);
+    }
     if (/^resolv|mark.*resolv|close ticket/.test(text)) {
       setTimeout(() => logEntry('Resolved'), 600);
     } else if (/on.?hold|put on hold/.test(text)) {
@@ -286,8 +376,17 @@
     }
   }, true);
 
+  startEmailDetectionLoop();
+  startAvailableDetectionLoop();
+  window.addEventListener('load', function () {
+    detectAgentEmail();
+    if (pageShowsAvailableStatus()) ensureAttendance('window-load-available');
+  });
+
   window.YLLoggerManual = {
-    log: manualLogEntry
+    log: manualLogEntry,
+    attendance: ensureAttendance,
+    email: () => detectAgentEmail()
   };
 
   console.log('[YL-Logger] Interceptors active on Yellow.ai');
