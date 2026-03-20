@@ -137,12 +137,24 @@
   .att-info { flex: 1; min-width: 0; }
   .att-name { font-size: 14px; font-weight: 700; color: #1a1a2e; }
   .att-sub { font-size: 11px; color: #8c8c8c; margin-top: 3px; }
-  .att-status { text-align: right; flex-shrink: 0; }
+  .att-status { text-align: right; flex-shrink: 0; min-width: 110px; }
   .att-status-label { font-size: 12px; font-weight: 700; }
   .att-status-label.present { color: #2e7d32; }
   .att-status-label.idle { color: #ef6c00; }
   .att-status-label.offline { color: #c62828; }
   .att-status-time { font-size: 11px; color: #999; margin-top: 3px; }
+
+  @media (max-width: 640px) {
+    .att-group-header { align-items: flex-start; flex-direction: column; }
+    .att-row { align-items: flex-start; flex-wrap: wrap; }
+    .att-info { min-width: 0; flex: 1 1 180px; }
+    .att-status {
+      min-width: 0;
+      width: 100%;
+      padding-left: 56px;
+      text-align: left;
+    }
+  }
 </style>
 </head>
 <body>
