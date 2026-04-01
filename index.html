@@ -72,6 +72,14 @@
   /* Agent list inside slot */
   .slot-report { display: none; border-top: 1px solid #f0f0f0; }
   .slot-report.open { display: block; }
+  .entry-list { border-top: 1px solid #2a2a2a; margin-top: 6px; padding: 4px 0; }
+  .entry-row { display: flex; align-items: center; gap: 10px; padding: 5px 16px; font-size: 12px; color: #aaa; border-bottom: 1px solid #1e1e1e; }
+  .entry-row:last-child { border-bottom: none; }
+  .entry-ticket { font-weight: 600; color: #ddd; min-width: 48px; }
+  .entry-agent { flex: 1; color: #bbb; }
+  .entry-time { color: #666; font-size: 11px; }
+  .entry-del { background: none; border: none; color: #555; cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; }
+  .entry-del:hover { color: #e55; }
 
   .agent-row { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; animation: fadeIn 0.3s ease; }
   .agent-row:last-child { border-bottom: none; }
@@ -272,7 +280,7 @@ function entryMatchesDate(entry) {
   // activeDateFilter = "2026-03-11", entry.timestamp = "11 Mar 2026, 09:02:34 PM"
   const entryDate = (entry.timestamp || '').split(',')[0].trim(); // "11 Mar 2026"
   const d = new Date(activeDateFilter + 'T00:00:00');
-  const target = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); // "11 Mar 2026"
+  const target = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); // "01 Apr 2026"
   return entryDate === target;
 }
 
@@ -517,6 +525,16 @@ function renderLogBoard() {
         </div>
         <div class="slot-report ${isOpen ? 'open' : ''}" id="srep-${slotKey}" data-slot="${slotKey}">
           ${agentRows}
+          <div class="entry-list">
+            ${entries.sort((a,b) => b.id - a.id).map(e => `
+              <div class="entry-row">
+                <span class="entry-status ${e.status === 'Resolved' ? 'res' : 'hld'}">${e.status === 'Resolved' ? '✓' : '⏸'}</span>
+                <span class="entry-ticket">#${e.ticketId}</span>
+                <span class="entry-agent">${displayName(e.agentEmail || e._agentKey)}</span>
+                <span class="entry-time">${e.timestamp}</span>
+                <button class="entry-del" onclick="deleteEntry('${e._agentKey}','${e.id}')" title="Delete">×</button>
+              </div>`).join('')}
+          </div>
         </div>
       </div>`;
   }).join('');
@@ -527,6 +545,16 @@ function renderLogBoard() {
 function toggleSlot(key) {
   document.getElementById('srep-'  + key).classList.toggle('open');
   document.getElementById('schev-' + key).classList.toggle('open');
+}
+
+function deleteEntry(agentKey, entryId) {
+  if (!confirm('Delete this entry?')) return;
+  fetch(`${FIREBASE_URL}/entries/${agentKey}/${entryId}.json`, { method: 'DELETE' })
+    .then(() => {
+      if (allData[agentKey]) delete allData[agentKey][entryId];
+      renderAll(allData);
+    })
+    .catch(() => alert('Delete failed.'));
 }
 
 function clearAllData() {
