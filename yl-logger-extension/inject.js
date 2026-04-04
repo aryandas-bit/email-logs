@@ -6,6 +6,10 @@
   let agentEmail = null;
   const recentLogs = {}; // ticketId+status → timestamp, prevents duplicate fires
 
+  // ── Presence tracking state ──
+  let _agentStatus    = null;   // 'Available' | 'Busy' | 'Away' — current known status
+  let _presenceStarted = false; // true once the first login event has been posted
+
   // ── Heartbeat ──
   const HB_URL = 'https://yl-logs-default-rtdb.firebaseio.com/heartbeats';
   let _hbInterval = null;
@@ -13,9 +17,12 @@
   let _firstSeenAt = null;
   let _detectInterval = null;
   let _availableInterval = null;
+  let _attendancePending = false;
+
   function currentIstDayKey() {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   }
+
   function sendHeartbeat() {
     if (!agentEmail) return;
     const dayKey = currentIstDayKey();
@@ -24,6 +31,7 @@
       _firstSeenAt = Date.now();
     }
     const key = agentEmail.replace(/[@.]/g, '_');
+    console.log('[YL-Logger] Sending heartbeat:', agentEmail);
     fetch(`${HB_URL}/${key}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -33,8 +41,12 @@
         attendanceDate: _attendanceDay,
         firstSeenAt: _firstSeenAt
       })
-    }).catch(() => {});
+    }).then(() => console.log('[YL-Logger] Heartbeat OK')).catch(e => console.error('[YL-Logger] Heartbeat failed:', e));
+
+    // Also post a presence heartbeat so background.js updates lastHeartbeat
+    postPresenceEvent('heartbeat', _agentStatus || 'Available');
   }
+
   function startHeartbeat() {
     if (_hbInterval) return;
     _attendanceDay = currentIstDayKey();
@@ -98,10 +110,43 @@
     return m ? m[0].toLowerCase() : null;
   }
 
+  // Broader extraction for trusted sources (localStorage, globals) — skips personal providers
+  function extractWorkEmail(str) {
+    if (!str) return null;
+    const ms = String(str).match(/[\w.+\-]+@[\w\-]+\.[\w.]{2,}/g);
+    if (!ms) return null;
+    for (const m of ms) {
+      const e = m.toLowerCase();
+      if (/\b(gmail|yahoo|hotmail|outlook|live|icloud|rediffmail|protonmail|aol|ymail)\b/.test(e)) continue;
+      return e;
+    }
+    return null;
+  }
+
+  // Parse JWT payload and extract email field
+  function extractEmailFromJwt(str) {
+    if (!str) return null;
+    const tokens = String(str).match(/eyJ[\w-]+\.eyJ[\w-]+\.[\w-]+/g) || [];
+    for (const t of tokens) {
+      try {
+        const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const e = payload.email || payload.emailId || payload.mail || payload.agentEmail;
+        if (e && /\w+@\w+\.\w+/.test(e)) return String(e).toLowerCase();
+      } catch (_) {}
+    }
+    return null;
+  }
+
   function sniffEmail(text) {
     if (agentEmail) return;
     const e = extractUltraEmail(text);
     if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected:', e); }
+  }
+
+  function sniffWorkEmail(text) {
+    if (agentEmail) return;
+    const e = extractEmailFromJwt(text) || extractWorkEmail(text);
+    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected (work):', e); }
   }
 
   function sniffEmbeddedPageData() {
@@ -112,6 +157,7 @@
         const txt = script.textContent;
         if (!txt) continue;
         sniffEmail(txt);
+        if (!agentEmail) sniffWorkEmail(txt);
         if (agentEmail) return agentEmail;
       }
     } catch (_) {}
@@ -121,11 +167,14 @@
   function ensureAttendance(reason) {
     const email = detectAgentEmail();
     if (!email) {
+      _attendancePending = true;
       console.log('[YL-Logger] Attendance pending: email not detected yet', reason || '');
       return false;
     }
+    _attendancePending = false;
     startHeartbeat();
     sendHeartbeat();
+    setAgentStatus('Available', reason || 'attendance');
     return true;
   }
 
@@ -134,16 +183,91 @@
     return /"status"\s*:\s*"available"|\bset available\b|\bmark available\b|\bgo online\b|\bavailable\b/i.test(String(text));
   }
 
+  // ── Busy / Away signal detection ──
+
+  function isBusySignal(text) {
+    if (!text) return false;
+    return /"status"\s*:\s*"busy"|\bset busy\b|\bmark busy\b|\bgo busy\b|\bbusy\b/i.test(String(text));
+  }
+
+  function isAwaySignal(text) {
+    if (!text) return false;
+    return /"status"\s*:\s*"away"|\bset away\b|\bmark away\b|\bgo away\b|\baway\b/i.test(String(text));
+  }
+
   function pageShowsAvailableStatus() {
     try {
-      const nodes = document.querySelectorAll('button,[role="button"],[role="option"],[role="menuitem"],[aria-label],[title],div,span');
+      const nodes = document.querySelectorAll('button,[role="button"],[role="option"],[role="menuitem"],[role="status"],[data-status],[class*="status"],[class*="Status"],[aria-label],[title],div,span');
       for (const node of nodes) {
         const text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        if (!text) continue;
-        if (/^available$/.test(text) || /^available [\u2303\u2304v^]?$/.test(text)) return true;
+        if (!text || text.length > 50) continue;
+        if (/\bavailable\b/.test(text)) return true;
       }
     } catch (_) {}
     return false;
+  }
+
+  function pageShowsBusyStatus() {
+    try {
+      const nodes = document.querySelectorAll('button,[role="button"],[role="option"],[role="menuitem"],[role="status"],[data-status],[class*="status"],[class*="Status"],[aria-label],[title],div,span');
+      for (const node of nodes) {
+        const text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!text || text.length > 50) continue;
+        if (/\bbusy\b/.test(text)) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function pageShowsAwayStatus() {
+    try {
+      const nodes = document.querySelectorAll('button,[role="button"],[role="option"],[role="menuitem"],[role="status"],[data-status],[class*="status"],[class*="Status"],[aria-label],[title],div,span');
+      for (const node of nodes) {
+        const text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!text || text.length > 50) continue;
+        if (/\baway\b/.test(text)) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  // ── Presence event helpers ──
+
+  /**
+   * Posts a presence event via window.postMessage.
+   * bridge.js (ISOLATED world) receives this and forwards to background.js.
+   */
+  function postPresenceEvent(evtType, status) {
+    const email = agentEmail || detectAgentEmail();
+    if (!email) return;
+    window.postMessage({
+      type: 'yl-presence-event',
+      event: {
+        type:   evtType,
+        email:  email,
+        status: status || _agentStatus || 'Available',
+        ts:     Date.now()
+      }
+    }, '*');
+  }
+
+  /**
+   * Transitions the agent to a new status.
+   * First call fires 'login', subsequent calls fire 'status_change'.
+   */
+  function setAgentStatus(newStatus, source) {
+    const email = agentEmail || detectAgentEmail();
+    if (!email) return;
+    if (!_presenceStarted) {
+      _presenceStarted = true;
+      _agentStatus     = newStatus;
+      postPresenceEvent('login', newStatus);
+      console.log('[YL-Logger] Presence login:', newStatus, '|', source);
+    } else if (_agentStatus !== newStatus) {
+      _agentStatus = newStatus;
+      postPresenceEvent('status_change', newStatus);
+      console.log('[YL-Logger] Status change →', newStatus, '|', source);
+    }
   }
 
   function findActionElement(target) {
@@ -165,27 +289,29 @@
   function detectAgentEmail() {
     if (agentEmail) return agentEmail;
 
-    // 1. Window globals
+    // 1. Window globals (use broader work-email detection — safe source)
     const globals = ['__userData', 'userData', 'user', 'currentUser', 'agentProfile', '__agent', 'YellowAI', 'ylUser'];
     for (const g of globals) {
       try {
         const obj = window[g];
         if (!obj) continue;
-        sniffEmail(JSON.stringify(obj));
+        const s = JSON.stringify(obj);
+        sniffEmail(s);
+        if (!agentEmail) sniffWorkEmail(s);
         if (agentEmail) return agentEmail;
       } catch (_) {}
     }
 
-    // 2. localStorage
+    // 2. localStorage — check JWTs first (most reliable), then any value
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        sniffEmail(localStorage.getItem(localStorage.key(i)));
-        if (agentEmail) return agentEmail;
-      }
+      const vals = [];
+      for (let i = 0; i < localStorage.length; i++) vals.push(localStorage.getItem(localStorage.key(i)) || '');
+      for (const v of vals) { sniffEmail(v); if (agentEmail) return agentEmail; }
+      for (const v of vals) { sniffWorkEmail(v); if (agentEmail) return agentEmail; }
     } catch (_) {}
 
     // 3. Cookies
-    try { sniffEmail(document.cookie); } catch (_) {}
+    try { sniffEmail(document.cookie); if (!agentEmail) sniffWorkEmail(document.cookie); } catch (_) {}
     if (agentEmail) return agentEmail;
 
     // 4. Embedded page data / inline scripts
@@ -209,6 +335,13 @@
       if (agentEmail) {
         clearInterval(_detectInterval);
         _detectInterval = null;
+        // Always start presence as soon as email is known — don't wait for "available" signal
+        if (!_presenceStarted) {
+          const s = pageShowsBusyStatus() ? 'Busy' : pageShowsAwayStatus() ? 'Away' : 'Available';
+          setAgentStatus(s, 'email-detected');
+          startHeartbeat();
+        }
+        if (_attendancePending || pageShowsAvailableStatus()) ensureAttendance('email-ready');
         return;
       }
       detectAgentEmail();
@@ -218,7 +351,13 @@
   function startAvailableDetectionLoop() {
     if (_availableInterval) return;
     _availableInterval = setInterval(() => {
-      if (pageShowsAvailableStatus()) ensureAttendance('dom-available');
+      if (pageShowsAvailableStatus()) {
+        ensureAttendance('dom-available');        // sets status → Available
+      } else if (pageShowsBusyStatus()) {
+        if (agentEmail) setAgentStatus('Busy', 'dom-poll');
+      } else if (pageShowsAwayStatus()) {
+        if (agentEmail) setAgentStatus('Away', 'dom-poll');
+      }
     }, 5000);
   }
 
@@ -245,7 +384,7 @@
 
   function logEntry(status, apiUrl, body) {
     const ticketId = getTicketInfo(apiUrl, body);
-    if (!ticketId) {
+    if (!ticketId || !/^\d{1,5}$/.test(ticketId)) {
       console.log('[YL-Logger] Skipped: could not identify ticket ID', {
         status,
         apiUrl: apiUrl || null,
@@ -254,9 +393,9 @@
       });
       return;
     }
-    const key = ticketId + '|' + status;
+    const key = ticketId;
     const now = Date.now();
-    // Suppress duplicate fires within 10 minutes for the same ticket+status
+    // Suppress any re-fire for the same ticket within 10 minutes (prevents false Resolved after On Hold)
     if (recentLogs[key] && now - recentLogs[key] < 600000) return;
     recentLogs[key] = now;
     const agent = detectAgentEmail() || 'unknown';
@@ -297,7 +436,7 @@
     return true;
   }
 
-  // ── Intercept fetch — sniff email from ALL responses ──
+  // ── Intercept fetch — sniff email + status signals from ALL responses ──
   const _fetch = window.fetch;
   window.fetch = async function (...args) {
     const req  = args[0];
@@ -307,26 +446,39 @@
 
     const res = await _fetch.apply(this, args);
 
-    // Sniff agent email from any response
-    if (!agentEmail) {
-      try {
-        res.clone().text().then(sniffEmail).catch(() => {});
-      } catch (_) {}
-    }
+    // Sniff agent email + status signals from any response
+    try {
+      res.clone().text().then(text => {
+        if (!agentEmail) sniffEmail(text);
+        if (isAvailableSignal(text)) {
+          setTimeout(() => ensureAttendance('response:' + url), 150);
+        } else if (isBusySignal(text)) {
+          setTimeout(() => { if (_presenceStarted) setAgentStatus('Busy', 'response:' + url); }, 150);
+        } else if (isAwaySignal(text)) {
+          setTimeout(() => { if (_presenceStarted) setAgentStatus('Away', 'response:' + url); }, 150);
+        }
+      }).catch(() => {});
+    } catch (_) {}
 
     // Detect status changes in mutating requests (skip search/filter/list endpoints)
     if (['POST', 'PUT', 'PATCH'].includes(method) && !/search|filter|list|query|export/i.test(url)) {
       try {
         let body = '';
         if (opts.body) body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
-        if (isAvailableSignal(url + ' ' + body)) {
+        const combined = url + ' ' + body;
+        if (isAvailableSignal(combined)) {
           setTimeout(() => ensureAttendance('fetch:' + url), 150);
+        } else if (isBusySignal(combined)) {
+          setTimeout(() => { if (_presenceStarted) setAgentStatus('Busy', 'fetch:' + url); }, 150);
+        } else if (isAwaySignal(combined)) {
+          setTimeout(() => { if (_presenceStarted) setAgentStatus('Away', 'fetch:' + url); }, 150);
         }
-        const combined = (url + ' ' + body).toLowerCase();
-        if (/resolv|"status"\s*:\s*"resolved"/i.test(combined)) {
+        const combinedLower = combined.toLowerCase();
+        if (/resolv|"status"\s*:\s*"resolved"/i.test(combinedLower)) {
           setTimeout(() => logEntry('Resolved', url, body), 400);
-        } else if (/on.?hold|onhold|"status"\s*:\s*"hold"/i.test(combined)) {
-          setTimeout(() => logEntry('On Hold', url, body), 400);
+        } else if (/on.?hold|onhold|"status"\s*:\s*"hold"/i.test(combinedLower)) {
+          const hasTicketInCall = !!(extractTicketIdFromText(url) || extractTicketIdFromText(body));
+          if (hasTicketInCall) setTimeout(() => logEntry('On Hold', url, body), 400);
         }
       } catch (_) {}
     }
@@ -345,17 +497,28 @@
 
   XMLHttpRequest.prototype.send = function (body) {
     // Sniff email from XHR response too
-    if (!agentEmail) {
-      this.addEventListener('load', function () {
-        try { sniffEmail(this.responseText); } catch (_) {}
-      });
-    }
+    this.addEventListener('load', function () {
+      try {
+        if (!agentEmail) sniffEmail(this.responseText);
+        if (!agentEmail) sniffWorkEmail(this.responseText);
+      } catch (_) {}
+    });
     if (['POST', 'PUT', 'PATCH'].includes((this._ylMethod || '').toUpperCase()) && !/search|filter|list|query|export/i.test(this._ylUrl || '')) {
       try {
         const combined = ((this._ylUrl || '') + ' ' + (body || '')).toLowerCase();
-        if (isAvailableSignal(combined)) setTimeout(() => ensureAttendance('xhr:' + (this._ylUrl || '')), 150);
-        if (/resolv/.test(combined)) setTimeout(() => logEntry('Resolved', this._ylUrl, body), 400);
-        else if (/on.?hold|onhold/.test(combined)) setTimeout(() => logEntry('On Hold', this._ylUrl, body), 400);
+        if (isAvailableSignal(combined)) {
+          setTimeout(() => ensureAttendance('xhr:' + (this._ylUrl || '')), 150);
+        } else if (isBusySignal(combined)) {
+          setTimeout(() => { if (_presenceStarted) setAgentStatus('Busy', 'xhr:' + (this._ylUrl || '')); }, 150);
+        } else if (isAwaySignal(combined)) {
+          setTimeout(() => { if (_presenceStarted) setAgentStatus('Away', 'xhr:' + (this._ylUrl || '')); }, 150);
+        }
+        if (/resolv/.test(combined)) {
+          setTimeout(() => logEntry('Resolved', this._ylUrl, body), 400);
+        } else if (/on.?hold|onhold/.test(combined)) {
+          const hasTicketInCall = !!(extractTicketIdFromText(this._ylUrl) || extractTicketIdFromText(body));
+          if (hasTicketInCall) setTimeout(() => logEntry('On Hold', this._ylUrl, body), 400);
+        }
       } catch (_) {}
     }
     return _send.apply(this, arguments);
@@ -368,6 +531,10 @@
     const text = (el.innerText || '').trim().toLowerCase();
     if (isAvailableSignal(text)) {
       setTimeout(() => ensureAttendance('click:' + text), 150);
+    } else if (isBusySignal(text)) {
+      setTimeout(() => { if (_presenceStarted) setAgentStatus('Busy', 'click:' + text); }, 150);
+    } else if (isAwaySignal(text)) {
+      setTimeout(() => { if (_presenceStarted) setAgentStatus('Away', 'click:' + text); }, 150);
     }
     if (/^resolv|mark.*resolv|close ticket/.test(text)) {
       setTimeout(() => logEntry('Resolved'), 600);
@@ -376,17 +543,43 @@
     }
   }, true);
 
+  // ── Presence: resume from Away when tab becomes visible again ──
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && _presenceStarted) {
+      // Send a heartbeat so background.js sees the agent is active again.
+      // If background had auto-marked them Away, the heartbeat will restore Available.
+      sendHeartbeat();
+      if (_agentStatus === 'Away') {
+        setAgentStatus('Available', 'tab-visible');
+      }
+    }
+  });
+
+  // ── Presence: logout on page unload (best-effort) ──
+  // The 30-min alarm threshold in background.js is the reliable fallback.
+  window.addEventListener('beforeunload', function () {
+    if (_presenceStarted && agentEmail) {
+      postPresenceEvent('logout', _agentStatus || 'Available');
+    }
+  });
+
   startEmailDetectionLoop();
   startAvailableDetectionLoop();
   window.addEventListener('load', function () {
     detectAgentEmail();
+    if (agentEmail && !_presenceStarted) {
+      const s = pageShowsBusyStatus() ? 'Busy' : pageShowsAwayStatus() ? 'Away' : 'Available';
+      setAgentStatus(s, 'page-load');
+      startHeartbeat();
+    }
     if (pageShowsAvailableStatus()) ensureAttendance('window-load-available');
   });
 
   window.YLLoggerManual = {
     log: manualLogEntry,
     attendance: ensureAttendance,
-    email: () => detectAgentEmail()
+    email: () => detectAgentEmail(),
+    status: () => _agentStatus
   };
 
   console.log('[YL-Logger] Interceptors active on Yellow.ai');

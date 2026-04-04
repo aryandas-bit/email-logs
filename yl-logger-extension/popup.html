@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agent Presence</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      background: #0f0f11;
+      color: #d4d4d8;
+      width: 340px;
+      min-height: 160px;
+      max-height: 580px;
+      overflow-y: auto;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid #1c1c1f;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    header h1 {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.01em;
+    }
+    #date-label {
+      font-size: 11px;
+      color: #52525b;
+    }
+    .refresh-btn {
+      background: none;
+      border: none;
+      color: #52525b;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      padding: 2px 3px;
+      border-radius: 4px;
+    }
+    .refresh-btn:hover { color: #a1a1aa; background: #1c1c1f; }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #3f3f46;
+      padding: 10px 14px 4px;
+    }
+
+    /* ── Status dot ── */
+    .dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-available { background: #22c55e; box-shadow: 0 0 5px #22c55e80; }
+    .dot-busy      { background: #f59e0b; box-shadow: 0 0 5px #f59e0b60; }
+    .dot-away      { background: #818cf8; }
+    .dot-offline   { background: #3f3f46; }
+
+    /* ── Active agent card ── */
+    .agent-card {
+      padding: 9px 14px 10px;
+      border-bottom: 1px solid #18181b;
+    }
+    .agent-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .agent-name {
+      flex: 1;
+      font-weight: 500;
+      color: #e4e4e7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status-badge {
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .badge-available { background: #14532d40; color: #4ade80; border: 1px solid #16a34a40; }
+    .badge-busy      { background: #78350f40; color: #fbbf24; border: 1px solid #d9770640; }
+    .badge-away      { background: #312e8140; color: #a5b4fc; border: 1px solid #4338ca40; }
+    .badge-offline   { background: #18181b; color: #52525b; border: 1px solid #27272a; }
+
+    .agent-meta {
+      font-size: 10px;
+      color: #52525b;
+      margin-top: 4px;
+    }
+    .agent-dur {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: #a1a1aa;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    /* ── Breakdown bar ── */
+    .bk-bar {
+      height: 3px;
+      border-radius: 2px;
+      display: flex;
+      overflow: hidden;
+      background: #27272a;
+      margin-top: 7px;
+    }
+    .bk-bar .seg { height: 100%; }
+    .seg-available { background: #22c55e; }
+    .seg-busy      { background: #f59e0b; }
+    .seg-away      { background: #818cf8; }
+    .seg-offline   { background: #52525b; }
+
+    /* ── Breakdown text ── */
+    .bk-text {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 5px;
+    }
+    .bk-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: #52525b;
+    }
+
+    /* ── Past session row ── */
+    .past-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-bottom: 1px solid #18181b;
+    }
+    .past-name {
+      flex: 1;
+      color: #52525b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 12px;
+    }
+    .past-meta { font-size: 10px; color: #3f3f46; }
+    .past-dur  { font-size: 11px; color: #3f3f46; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+    /* ── Empty ── */
+    .empty {
+      text-align: center;
+      padding: 36px 16px;
+      color: #3f3f46;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Agent Presence</h1>
+    <span id="date-label"></span>
+    <button class="refresh-btn" id="refresh-btn" title="Refresh">↺</button>
+  </header>
+  <div id="root"><div class="empty">Loading…</div></div>
+  <script src="popup.js"></script>
+</body>
+</html>
