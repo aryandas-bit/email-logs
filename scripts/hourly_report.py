@@ -38,6 +38,8 @@ for agent_key, entries in data.items():
         if not (slot_start <= entry_dt < slot_end):
             continue
         email = entry.get('agentEmail') or agent_key
+        if not email.endswith('@ultrahuman.com'):
+            continue
         local = email.split('@')[0]
         local = re.sub(r'_ext$', '', local)
         name  = ' '.join(w.capitalize() for w in re.split(r'[._]', local))
