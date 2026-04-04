@@ -153,6 +153,29 @@
   .att-status-label.offline { color: #c62828; }
   .att-status-time { font-size: 11px; color: #999; margin-top: 3px; }
 
+  /* ── Sessions view ── */
+  .sess-header { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .sess-header h3 { flex:1; font-size:16px; font-weight:700; color:#1a1a2e; margin:0; }
+  .sess-date { padding:8px 10px; border-radius:8px; border:1.5px solid #e8e8e8; font-size:13px; color:#1a1a2e; background:#fff; cursor:pointer; }
+  .sess-date:focus { outline:none; border-color:#5c6bc0; }
+  .sess-btn { padding:8px 12px; border-radius:8px; border:1.5px solid #e8e8e8; background:#fff; font-size:13px; font-weight:600; color:#555; cursor:pointer; }
+  .sess-btn:hover { background:#f5f6f8; }
+  .sess-section { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#bbb; margin:0 0 10px; }
+  .sess-section:not(:first-child) { margin-top:20px; }
+  .sess-card { background:#fff; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.08); padding:14px 16px; margin-bottom:10px; display:flex; align-items:flex-start; gap:12px; }
+  .sess-avatar { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:#fff; flex-shrink:0; margin-top:1px; }
+  .sess-body { flex:1; min-width:0; }
+  .sess-row1 { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .sess-name { flex:1; font-size:14px; font-weight:600; color:#1a1a2e; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sess-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:999px; flex-shrink:0; }
+  .sess-dur { font-size:14px; font-weight:700; color:#1a1a2e; font-variant-numeric:tabular-nums; flex-shrink:0; }
+  .sess-meta { font-size:11px; color:#aaa; margin-bottom:8px; }
+  .sess-bar { height:5px; border-radius:3px; display:flex; overflow:hidden; background:#f0f0f0; margin-bottom:6px; }
+  .sess-breakdown { display:flex; flex-wrap:wrap; gap:10px; }
+  .sess-bk { display:flex; align-items:center; gap:4px; font-size:11px; color:#777; }
+  .sess-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
+  .sess-pulse { display:inline-block; width:7px; height:7px; border-radius:50%; background:#2e7d32; animation:pulse 2s infinite; }
+
   @media (max-width: 640px) {
     .att-group-header { grid-template-columns: 1fr; }
     .att-group-meta { text-align: left; white-space: normal; }
@@ -181,7 +204,7 @@
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <div class="view-tabs">
         <button class="view-tab active" id="tabLogs" onclick="setView('logs')">Ticket Log</button>
-        <button class="view-tab" id="tabAttendance" onclick="setView('attendance')">Attendance</button>
+        <button class="view-tab" id="tabSessions" onclick="setView('sessions')">Sessions</button>
       </div>
       <div class="date-wrap">
         <input class="date-input" type="date" id="datePicker" onchange="setDateFilter(this.value)">
@@ -199,16 +222,6 @@
     <div class="card"><div class="label">On Hold</div><div class="value orange" id="cOnHold">0</div></div>
   </div>
 
-  <div class="summary" id="attendanceSummary" style="display:none">
-    <div class="card"><div class="label">Roster</div><div class="value blue" id="aRoster">0</div></div>
-    <div class="card"><div class="label">Present</div><div class="value green" id="aPresent">0</div></div>
-    <div class="card"><div class="label">Idle</div><div class="value orange" id="aIdle">0</div></div>
-    <div class="card"><div class="label">Absent</div><div class="value red" id="aAbsent">0</div></div>
-  </div>
-
-  <div class="att-note" id="attendanceNote" style="display:none">
-    Attendance is marked from Yellow.ai heartbeat activity. Present means the agent opened Yellow and was active today.
-  </div>
 
   <!-- Agents modal -->
   <div class="mag-overlay" id="mag-overlay" onclick="if(event.target===this)closeAgentsModal()">
@@ -255,21 +268,12 @@ function todayIstKey() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
-function formatAttendanceTime(ts) {
-  if (!ts) return 'Not seen';
-  return new Date(ts).toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: 'Asia/Kolkata'
-  });
-}
 
 function setView(view) {
   activeView = view;
   document.getElementById('tabLogs').classList.toggle('active', view === 'logs');
-  document.getElementById('tabAttendance').classList.toggle('active', view === 'attendance');
-  document.getElementById('datePicker').disabled = view === 'attendance';
+  document.getElementById('tabSessions').classList.toggle('active', view === 'sessions');
+  document.getElementById('datePicker').disabled = view === 'sessions';
   document.getElementById('exportBtn').style.display = view === 'logs' ? '' : 'none';
   document.getElementById('shiftReportBtn').style.display = view === 'logs' ? '' : 'none';
   render();
@@ -417,15 +421,13 @@ function renderAll(data) {
 }
 
 function render() {
-  if (activeView === 'attendance') renderAttendance();
+  if (activeView === 'sessions') renderSessions();
   else renderLogBoard();
 }
 
 function renderLogBoard() {
   const board = document.getElementById('board');
   document.getElementById('summary').style.display = 'none';
-  document.getElementById('attendanceSummary').style.display = 'none';
-  document.getElementById('attendanceNote').style.display = 'none';
 
   // Flatten + validate + date filter
   const allEntries = [];
@@ -621,113 +623,174 @@ function connectHeartbeats() {
       if (msg.data === null) delete liveHeartbeats[key];
       else liveHeartbeats[key] = msg.data;
     }
-    if (activeView === 'attendance') renderAttendance();
+    if (activeView === 'sessions') renderSessions();
   });
 }
 connectHeartbeats();
+connectPresence();
 
-function renderAttendance() {
+let sessionsDateKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+let livePresence = {};
+
+function connectPresence() {
+  const src = new EventSource(FIREBASE_URL + '/presence.json');
+  src.addEventListener('put', function(e) {
+    const msg = JSON.parse(e.data);
+    if (msg.path === '/') {
+      livePresence = msg.data || {};
+    } else {
+      const parts = msg.path.replace(/^\//, '').split('/').filter(Boolean);
+      if (parts.length === 1) {
+        if (msg.data === null) delete livePresence[parts[0]];
+        else livePresence[parts[0]] = msg.data;
+      } else if (parts.length === 2) {
+        if (!livePresence[parts[0]]) livePresence[parts[0]] = {};
+        if (msg.data === null) delete livePresence[parts[0]][parts[1]];
+        else livePresence[parts[0]][parts[1]] = msg.data;
+      }
+    }
+    if (activeView === 'sessions') renderSessions();
+  });
+  src.addEventListener('patch', function(e) {
+    const msg = JSON.parse(e.data);
+    const parts = msg.path.replace(/^\//, '').split('/').filter(Boolean);
+    if (parts.length === 0) Object.assign(livePresence, msg.data || {});
+    else if (parts.length === 1) {
+      if (!livePresence[parts[0]]) livePresence[parts[0]] = {};
+      Object.assign(livePresence[parts[0]], msg.data || {});
+    }
+    if (activeView === 'sessions') renderSessions();
+  });
+}
+
+const S_COLOR = { Available:'#2e7d32', Busy:'#e65100', Away:'#1565c0', Offline:'#9e9e9e' };
+const S_BG    = { Available:'#e8f5e9', Busy:'#fff3e0', Away:'#e3f2fd', Offline:'#f5f5f5' };
+const S_BAR   = { Available:'#43a047', Busy:'#fb8c00', Away:'#1e88e5', Offline:'#bdbdbd' };
+
+function fmtMs(ms) {
+  if (!ms || ms <= 0) return '0m';
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h > 0) return h + 'h ' + m + 'm';
+  if (m > 0) return m + 'm ' + sec + 's';
+  return sec + 's';
+}
+function fmtMin(mins) {
+  if (!mins || mins <= 0) return '0m';
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+}
+function fmtTs(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' });
+}
+function sessLiveTotal(log, now) {
+  let ms = 0;
+  for (const e of (log || [])) ms += Math.max(0, (e.end != null ? e.end : now) - e.start);
+  return ms;
+}
+function sessBreakdown(log, endTs) {
+  const bd = { Available:0, Busy:0, Away:0, Offline:0 };
+  for (const e of (log || [])) {
+    const dur = Math.max(0, (e.end != null ? e.end : endTs) - e.start);
+    if (e.status in bd) bd[e.status] += dur;
+  }
+  return bd;
+}
+function sessOpenStatus(log) {
+  if (!log || !log.length) return null;
+  const last = log[log.length - 1];
+  return last.end == null ? last : null;
+}
+function sessIsOnline(agentKey, session) {
+  if (!session || session.logoutTime) return false;
+  const hb = liveHeartbeats[agentKey];
+  if (!hb || !hb.lastSeen) return false;
+  return (Date.now() - hb.lastSeen) < 15 * 60 * 1000;
+}
+
+function renderSessions() {
   const board = document.getElementById('board');
-  const todayKey = todayIstKey();
-  const selectedDate = activeDateFilter || todayKey;
   document.getElementById('summary').style.display = 'none';
-  document.getElementById('attendanceSummary').style.display = 'flex';
-  document.getElementById('attendanceNote').style.display = 'block';
+  const now = Date.now();
 
-  if (selectedDate !== todayKey) {
-    document.getElementById('attendanceSummary').style.display = 'none';
-    board.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">Attendance is live-only</strong><p>Attendance uses today's heartbeat activity and is available only for ${todayKey}.</p></div>`;
+  let headerHtml = `
+    <div class="sess-header">
+      <h3>Agent Sessions &nbsp;<span class="sess-pulse" title="Live"></span></h3>
+      <input type="date" class="sess-date" id="sessDatePicker" value="${sessionsDateKey}" onchange="sessionsDateKey=this.value;renderSessions()">
+      <button class="sess-btn" onclick="sessionsDateKey=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});document.getElementById('sessDatePicker').value=sessionsDateKey;renderSessions()">Today</button>
+      <button class="sess-btn" onclick="renderSessions()">↺ Refresh</button>
+    </div>`;
+
+  // Collect sessions for selected date
+  const onlineCards = [], offlineCards = [];
+  for (const [agentKey, dates] of Object.entries(livePresence)) {
+    if (!dates || typeof dates !== 'object') continue;
+    const session = dates[sessionsDateKey];
+    if (!session) continue;
+    const online = sessIsOnline(agentKey, session);
+    if (online) onlineCards.push({ agentKey, session });
+    else offlineCards.push({ agentKey, session });
+  }
+
+  if (onlineCards.length === 0 && offlineCards.length === 0) {
+    board.innerHTML = headerHtml + `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No sessions for ${sessionsDateKey}</strong><p>Sessions appear here as agents log in to Yellow.ai</p></div>`;
     return;
   }
 
-  const rosterEmails = {};
-  for (const name of Object.keys(ROSTER)) {
-    rosterEmails[name] = true;
-  }
+  function buildCard(agentKey, session, online) {
+    const log    = session.statusLog || [];
+    const open   = sessOpenStatus(log);
+    const status = online ? (open ? open.status : 'Available') : 'Offline';
+    const endTs  = online ? now : (session.logoutTime || now);
+    const totalMs = online ? sessLiveTotal(log, now) : (session.totalDuration ? session.totalDuration * 60000 : sessLiveTotal(log, endTs));
+    const bd     = sessBreakdown(log, endTs);
+    const bdTotal = Math.max(totalMs, 1);
+    const email  = session.agentEmail || agentKey;
+    const name   = displayName(email);
+    const color  = avatarColor(agentKey);
+    const sColor = S_COLOR[status] || '#9e9e9e';
+    const sBg    = S_BG[status]    || '#f5f5f5';
 
-  const heartbeatEmails = Object.values(liveHeartbeats)
-    .map(hb => hb && hb.email)
-    .filter(Boolean)
-    .map(email => displayName(email).toLowerCase());
+    let meta = session.loginTime ? 'Login: ' + fmtTs(session.loginTime) : '';
+    if (!online && session.logoutTime) meta += ' · Left: ' + fmtTs(session.logoutTime);
+    if (online && open) meta += ' · ' + status + ' since ' + fmtTs(open.start);
 
-  const allNames = Array.from(new Set([
-    ...Object.keys(ROSTER),
-    ...heartbeatEmails
-  ])).sort((a, b) => a.localeCompare(b));
+    const barSegs = ['Available','Busy','Away','Offline'].filter(s => bd[s] > 0).map(s => {
+      const pct = ((bd[s] / bdTotal) * 100).toFixed(1);
+      return '<div style="flex:0 0 ' + pct + '%;background:' + S_BAR[s] + '" title="' + s + ': ' + fmtMs(bd[s]) + '"></div>';
+    }).join('');
 
-  const now = Date.now();
-  const presentWindow = 2 * 60 * 1000;
-  const idleWindow = 15 * 60 * 1000;
-  const attendanceRows = allNames.map(nameKey => {
-    const hb = Object.values(liveHeartbeats).find(item =>
-      item && item.email && displayName(item.email).toLowerCase() === nameKey && item.attendanceDate === todayKey
-    ) || null;
-    const email = hb?.email || `${nameKey.replace(/\s+/g, '.')}@unknown`;
-    const ri = ROSTER[nameKey] || null;
-    const firstSeenAt = hb?.firstSeenAt || null;
-    const lastSeen = hb?.lastSeen || null;
-    let state = 'offline';
-    if (lastSeen && now - lastSeen < presentWindow) state = 'present';
-    else if (lastSeen && now - lastSeen < idleWindow) state = 'idle';
-    return { nameKey, email, roster: ri, firstSeenAt, lastSeen, state };
-  });
+    const bdText = ['Available','Busy','Away','Offline'].filter(s => bd[s] > 0).map(s =>
+      '<span class="sess-bk"><span class="sess-dot" style="background:' + S_BAR[s] + '"></span>' + s + ': ' + fmtMs(bd[s]) + '</span>'
+    ).join('');
 
-  const presentCount = attendanceRows.filter(a => a.state === 'present').length;
-  const idleCount = attendanceRows.filter(a => a.state === 'idle').length;
-  const absentCount = attendanceRows.filter(a => a.state === 'offline').length;
-  document.getElementById('aRoster').textContent = attendanceRows.length;
-  document.getElementById('aPresent').textContent = presentCount;
-  document.getElementById('aIdle').textContent = idleCount;
-  document.getElementById('aAbsent').textContent = absentCount;
-
-  const shiftOrder = ['Morning 1','Morning 2','Evening 1','Evening 2','Evening 3','Evening 4','Night','Unknown'];
-  const groups = {};
-  for (const row of attendanceRows) {
-    const shift = row.roster?.shift || 'Unknown';
-    if (!groups[shift]) groups[shift] = [];
-    groups[shift].push(row);
-  }
-
-  const sortedGroups = shiftOrder.filter(shift => groups[shift] && groups[shift].length);
-  const html = sortedGroups.map(shift => {
-    const rows = groups[shift].sort((a, b) => {
-      const rank = { present: 0, idle: 1, offline: 2 };
-      if (rank[a.state] !== rank[b.state]) return rank[a.state] - rank[b.state];
-      return (a.firstSeenAt || Infinity) - (b.firstSeenAt || Infinity) || a.nameKey.localeCompare(b.nameKey);
-    });
-    const present = rows.filter(r => r.state !== 'offline').length;
     return `
-      <div class="att-group">
-        <div class="att-group-header">
-          <div>
-            <div class="att-group-title">${shift}</div>
-            <div class="att-group-sub">${rows[0]?.roster?.time || 'No shift time mapped'}</div>
+      <div class="sess-card">
+        <div class="sess-avatar" style="background:${color}">${initials(email)}</div>
+        <div class="sess-body">
+          <div class="sess-row1">
+            <span class="sess-name" title="${email}">${name}</span>
+            <span class="sess-badge" style="background:${sBg};color:${sColor}">${status}</span>
+            <span class="sess-dur">${online ? fmtMs(totalMs) : fmtMin(session.totalDuration)}</span>
           </div>
-          <div class="att-group-meta">${present}/${rows.length} present</div>
+          ${meta ? '<div class="sess-meta">' + meta + '</div>' : ''}
+          <div class="sess-bar">${barSegs}</div>
+          <div class="sess-breakdown">${bdText}</div>
         </div>
-        ${rows.map(row => {
-          const label = row.state === 'present' ? 'Present' : row.state === 'idle' ? 'Idle' : 'Absent';
-          const timeLabel = row.firstSeenAt ? `First seen ${formatAttendanceTime(row.firstSeenAt)}` : 'No heartbeat yet';
-          return `
-            <div class="att-row">
-              <div class="att-presence ${row.state}"></div>
-              <div class="att-avatar" style="background:${avatarColor(row.nameKey)}">${initials(row.email)}</div>
-              <div class="att-info">
-                <div class="att-name">${displayName(row.email)}</div>
-                <div class="att-sub">${row.roster ? `${row.roster.vendor} · ${row.roster.ch}` : 'Not in roster'}${row.lastSeen ? ` · Last seen ${formatAttendanceTime(row.lastSeen)}` : ''}</div>
-              </div>
-              <div class="att-status">
-                <div class="att-status-label ${row.state}">${label}</div>
-                <div class="att-status-time">${timeLabel}</div>
-              </div>
-            </div>`;
-        }).join('')}
       </div>`;
-  }).join('');
+  }
 
-  board.innerHTML = html
-    ? `<div class="att-board">${html}</div>`
-    : `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No attendance yet</strong><p>Agents will appear here as soon as Yellow.ai heartbeats start coming in.</p></div>`;
+  let html = headerHtml;
+  if (onlineCards.length) {
+    html += '<div class="sess-section">Online Now — ' + onlineCards.length + '</div>';
+    html += onlineCards.map(({agentKey, session}) => buildCard(agentKey, session, true)).join('');
+  }
+  if (offlineCards.length) {
+    html += '<div class="sess-section">Logged Out — ' + offlineCards.length + '</div>';
+    html += offlineCards.map(({agentKey, session}) => buildCard(agentKey, session, false)).join('');
+  }
+
+  board.innerHTML = html;
 }
 
 function showAgentsModal() {

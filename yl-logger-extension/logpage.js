@@ -1,5 +1,5 @@
 // Runs on email-logs.vercel.app
-// Reads entries from chrome.storage.local, writes to page's localStorage, re-renders
+// Syncs yl_entries from chrome.storage.local → window.entries so the page can render them
 
 function syncToPage() {
   chrome.storage.local.get({ yl_entries: [] }, function (data) {
@@ -13,7 +13,6 @@ function syncToPage() {
   });
 }
 
-// Instant sync when storage changes
 chrome.storage.onChanged.addListener(function (changes, area) {
   if (area === 'local' && changes.yl_entries) {
     const incoming = changes.yl_entries.newValue || [];
@@ -23,7 +22,8 @@ chrome.storage.onChanged.addListener(function (changes, area) {
   }
 });
 
-// Initial load sync
-window.addEventListener('load', function () {
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
   syncToPage();
-});
+} else {
+  window.addEventListener('load', syncToPage);
+}
