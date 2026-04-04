@@ -154,11 +154,6 @@
   .att-status-time { font-size: 11px; color: #999; margin-top: 3px; }
 
   /* ── Sessions view ── */
-  .sess-header { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
-  .sess-date { padding:8px 10px; border-radius:8px; border:1.5px solid #e8e8e8; font-size:13px; color:#1a1a2e; background:#fff; cursor:pointer; }
-  .sess-date:focus { outline:none; border-color:#5c6bc0; }
-  .sess-btn { padding:8px 12px; border-radius:8px; border:1.5px solid #e8e8e8; background:#fff; font-size:13px; font-weight:600; color:#555; cursor:pointer; }
-  .sess-btn:hover { background:#f5f6f8; }
   .sess-section { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#bbb; margin:0 0 10px; }
   .sess-section:not(:first-child) { margin-top:20px; }
   .sess-card { background:#fff; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.08); padding:14px 16px; margin-bottom:10px; display:flex; align-items:flex-start; gap:12px; }
@@ -173,7 +168,7 @@
   .sess-breakdown { display:flex; flex-wrap:wrap; gap:10px; }
   .sess-bk { display:flex; align-items:center; gap:4px; font-size:11px; color:#777; }
   .sess-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
-  .sess-pulse { display:inline-block; width:7px; height:7px; border-radius:50%; background:#2e7d32; animation:pulse 2s infinite; }
+
 
   @media (max-width: 640px) {
     .att-group-header { grid-template-columns: 1fr; }
@@ -272,7 +267,7 @@ function setView(view) {
   activeView = view;
   document.getElementById('tabLogs').classList.toggle('active', view === 'logs');
   document.getElementById('tabSessions').classList.toggle('active', view === 'sessions');
-  document.getElementById('datePicker').disabled = view === 'sessions';
+  document.getElementById('datePicker').disabled = false;
   document.getElementById('exportBtn').style.display = view === 'logs' ? '' : 'none';
   document.getElementById('shiftReportBtn').style.display = view === 'logs' ? '' : 'none';
   render();
@@ -628,7 +623,6 @@ function connectHeartbeats() {
 connectHeartbeats();
 connectPresence();
 
-let sessionsDateKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 let livePresence = {};
 
 function connectPresence() {
@@ -712,20 +706,14 @@ function renderSessions() {
   document.getElementById('summary').style.display = 'none';
   const now = Date.now();
 
-  let headerHtml = `
-    <div class="sess-header">
-      <span class="sess-pulse" title="Live" style="flex-shrink:0"></span>
-      <input type="date" class="sess-date" id="sessDatePicker" value="${sessionsDateKey}" onchange="sessionsDateKey=this.value;renderSessions()">
-      <button class="sess-btn" onclick="sessionsDateKey=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});document.getElementById('sessDatePicker').value=sessionsDateKey;renderSessions()">Today</button>
-      <button class="sess-btn" onclick="renderSessions()">↺ Refresh</button>
-    </div>`;
+  const dateKey = activeDateFilter || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
   // Collect sessions for selected date — only agents who have ticket history (filters test/random accounts)
   const onlineCards = [], offlineCards = [];
   for (const [agentKey, dates] of Object.entries(livePresence)) {
     if (!dates || typeof dates !== 'object') continue;
     if (!allData[agentKey]) continue;
-    const session = dates[sessionsDateKey];
+    const session = dates[dateKey];
     if (!session) continue;
     const online = sessIsOnline(agentKey, session);
     if (online) onlineCards.push({ agentKey, session });
@@ -733,7 +721,7 @@ function renderSessions() {
   }
 
   if (onlineCards.length === 0 && offlineCards.length === 0) {
-    board.innerHTML = headerHtml + `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No sessions for ${sessionsDateKey}</strong><p>Sessions appear here as agents log in to Yellow.ai</p></div>`;
+    board.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No sessions for ${dateKey}</strong><p>Sessions appear here as agents log in to Yellow.ai</p></div>`;
     return;
   }
 
@@ -780,7 +768,7 @@ function renderSessions() {
       </div>`;
   }
 
-  let html = headerHtml;
+  let html = '';
   if (onlineCards.length) {
     html += '<div class="sess-section">Online Now — ' + onlineCards.length + '</div>';
     html += onlineCards.map(({agentKey, session}) => buildCard(agentKey, session, true)).join('');
