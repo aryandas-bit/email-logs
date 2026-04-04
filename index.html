@@ -155,7 +155,6 @@
 
   /* ── Sessions view ── */
   .sess-header { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
-  .sess-header h3 { flex:1; font-size:16px; font-weight:700; color:#1a1a2e; margin:0; }
   .sess-date { padding:8px 10px; border-radius:8px; border:1.5px solid #e8e8e8; font-size:13px; color:#1a1a2e; background:#fff; cursor:pointer; }
   .sess-date:focus { outline:none; border-color:#5c6bc0; }
   .sess-btn { padding:8px 12px; border-radius:8px; border:1.5px solid #e8e8e8; background:#fff; font-size:13px; font-weight:600; color:#555; cursor:pointer; }
@@ -715,16 +714,17 @@ function renderSessions() {
 
   let headerHtml = `
     <div class="sess-header">
-      <h3>Agent Sessions &nbsp;<span class="sess-pulse" title="Live"></span></h3>
+      <span class="sess-pulse" title="Live" style="flex-shrink:0"></span>
       <input type="date" class="sess-date" id="sessDatePicker" value="${sessionsDateKey}" onchange="sessionsDateKey=this.value;renderSessions()">
       <button class="sess-btn" onclick="sessionsDateKey=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});document.getElementById('sessDatePicker').value=sessionsDateKey;renderSessions()">Today</button>
       <button class="sess-btn" onclick="renderSessions()">↺ Refresh</button>
     </div>`;
 
-  // Collect sessions for selected date
+  // Collect sessions for selected date — only agents who have ticket history (filters test/random accounts)
   const onlineCards = [], offlineCards = [];
   for (const [agentKey, dates] of Object.entries(livePresence)) {
     if (!dates || typeof dates !== 'object') continue;
+    if (!allData[agentKey]) continue;
     const session = dates[sessionsDateKey];
     if (!session) continue;
     const online = sessIsOnline(agentKey, session);
