@@ -306,7 +306,7 @@
       if (
         el.matches('button,[role="button"],li[role="menuitem"],[role="menuitem"],[role="option"],[role="listitem"]') ||
         isAvailableSignal(text) ||
-        /^resolv|mark.*resolv|close ticket|on.?hold|put on hold/i.test(text)
+        (text.length <= 60 && /^resolv|mark.*resolv|close ticket|on.?hold|put on hold/i.test(text))
       ) {
         return el;
       }
@@ -566,7 +566,7 @@
     }
     if (/^resolv|mark.*resolv|close ticket/.test(text)) {
       setTimeout(() => logEntry('Resolved'), 600);
-    } else if (/on.?hold|put on hold/.test(text)) {
+    } else if (text.length <= 30 && /^(on.?hold|put on hold|mark on hold)$/.test(text)) {
       setTimeout(() => logEntry('On Hold'), 600);
     }
   }, true);
