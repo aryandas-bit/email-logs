@@ -536,7 +536,7 @@ function renderLogBoard() {
                 <span class="entry-ticket">#${e.ticketId}</span>
                 <span class="entry-agent">${displayName(e.agentEmail || e._agentKey)}</span>
                 <span class="entry-time">${e.timestamp}</span>
-<button class="entry-del" onclick="deleteEntry('${e._agentKey}','${e.id}')" title="Delete">×</button>
+<button class="entry-del" data-agent="${e._agentKey}" data-id="${e.id}" title="Delete">×</button>
               </div>`).join('')}
           </div>
         </div>
@@ -551,14 +551,21 @@ function toggleSlot(key) {
   document.getElementById('schev-' + key).classList.toggle('open');
 }
 
-function deleteEntry(agentKey, entryId) {
+document.getElementById('board').addEventListener('click', function(e) {
+  const btn = e.target.closest('.entry-del');
+  if (!btn) return;
+  const agentKey = btn.dataset.agent;
+  const entryId  = btn.dataset.id;
+  if (!agentKey || !entryId) return;
+  btn.textContent = '…';
+  btn.disabled = true;
   fetch(`${FIREBASE_URL}/entries/${agentKey}/${entryId}.json`, { method: 'DELETE' })
     .then(() => {
       if (allData[agentKey]) delete allData[agentKey][entryId];
       render();
     })
-    .catch(() => {});
-}
+    .catch(() => location.reload());
+});
 
 function clearAllData() {
   if (!confirm('Delete ALL entries from Firebase? This cannot be undone.')) return;
