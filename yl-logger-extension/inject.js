@@ -508,10 +508,8 @@
         const combinedLower = combined.toLowerCase();
         if (/(?<!un)resolv|"status"\s*:\s*"resolved"/i.test(combinedLower)) {
           setTimeout(() => logEntry('Resolved', url, body), 400);
-        } else if (/on.?hold|onhold|"status"\s*:\s*"hold"/i.test(combinedLower)) {
-          const hasTicketInCall = !!(extractTicketIdFromText(url) || extractTicketIdFromText(body));
-          if (hasTicketInCall) setTimeout(() => logEntry('On Hold', url, body), 400);
         }
+        // On Hold is detected only via click listener to avoid false positives from background API calls
       } catch (_) {}
     }
 
@@ -547,10 +545,8 @@
         }
         if (/(?<!un)resolv/.test(combined)) {
           setTimeout(() => logEntry('Resolved', this._ylUrl, body), 400);
-        } else if (/on.?hold|onhold/.test(combined)) {
-          const hasTicketInCall = !!(extractTicketIdFromText(this._ylUrl) || extractTicketIdFromText(body));
-          if (hasTicketInCall) setTimeout(() => logEntry('On Hold', this._ylUrl, body), 400);
         }
+        // On Hold is detected only via click listener to avoid false positives from background API calls
       } catch (_) {}
     }
     return _send.apply(this, arguments);
