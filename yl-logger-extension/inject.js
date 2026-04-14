@@ -423,9 +423,11 @@
       });
       return;
     }
-    const key = ticketId + '|' + status;
     const now = Date.now();
+    // If this ticket was already Resolved, never overwrite with On Hold within 10 minutes
+    if (status === 'On Hold' && recentLogs[ticketId + '|Resolved'] && now - recentLogs[ticketId + '|Resolved'] < 600000) return;
     // Suppress duplicate fires for the same ticket+status within 10 minutes
+    const key = ticketId + '|' + status;
     if (recentLogs[key] && now - recentLogs[key] < 600000) return;
     recentLogs[key] = now;
     const agent = detectAgentEmail() || 'unknown';

@@ -56,8 +56,10 @@ window.addEventListener('message', function (e) {
   if (!entry.ticketId || /^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) return;
 
   // Synchronous dedup — block duplicate Firebase pushes for the same ticket+status within 10 minutes
-  const key = entry.ticketId + '|' + entry.status;
   const now = Date.now();
+  // If already Resolved, never overwrite with On Hold within 10 minutes
+  if (entry.status === 'On Hold' && recentPushes[entry.ticketId + '|Resolved'] && now - recentPushes[entry.ticketId + '|Resolved'] < 600000) return;
+  const key = entry.ticketId + '|' + entry.status;
   if (recentPushes[key] && now - recentPushes[key] < 600000) return;
   recentPushes[key] = now; // set immediately to block any rapid duplicates
 
