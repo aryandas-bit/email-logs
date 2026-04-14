@@ -9,6 +9,7 @@
   // ── Presence tracking state ──
   let _agentStatus    = null;   // 'Available' | 'Busy' | 'Away' — current known status
   let _presenceStarted = false; // true once the first login event has been posted
+  let _lastLoggedDate  = null;  // IST date of the last login event — resets session on new day
 
   // ── Heartbeat ──
   const HB_URL = 'https://yl-logs-default-rtdb.firebaseio.com/heartbeats';
@@ -117,7 +118,14 @@
     if (!ms) return null;
     for (const m of ms) {
       const e = m.toLowerCase();
+      // Skip personal email providers
       if (/\b(gmail|yahoo|hotmail|outlook|live|icloud|rediffmail|protonmail|aol|ymail)\b/.test(e)) continue;
+      // Skip obviously fake / placeholder domains
+      if (/\b(random|test|example|domain|sample|foo|bar|baz|placeholder|dummy|fake|noreply|no-reply|donotreply|localhost)\b/.test(e)) continue;
+      // Skip platform's own domains
+      if (/\b(yellow\.ai|yellowmessenger\.com|botplatform\.io)\b/.test(e)) continue;
+      // Skip generic local parts
+      if (/^(admin|user|info|mail|support|contact|hello|hi|name|email|sales|help|team)@/.test(e)) continue;
       return e;
     }
     return null;
@@ -137,16 +145,33 @@
     return null;
   }
 
+  // Domains that belong to the CRM platform itself — never the agent's email
+  const PLATFORM_DOMAINS = ['yellow.ai', 'yellowmessenger.com', 'botplatform.io'];
+
+  function isPlatformOrFakeEmail(e) {
+    if (!e) return true;
+    if (/\b(random|test|example|domain|sample|foo|bar|baz|placeholder|dummy|fake|noreply|no-reply|localhost)\b/.test(e)) return true;
+    const domain = e.split('@')[1] || '';
+    return PLATFORM_DOMAINS.some(d => domain === d || domain.endsWith('.' + d));
+  }
+
   function sniffEmail(text) {
-    if (agentEmail) return;
     const e = extractUltraEmail(text);
-    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected:', e); }
+    if (!e) return;
+    // Always prefer a real ultrahuman.com email — override platform/fake emails
+    if (!agentEmail || isPlatformOrFakeEmail(agentEmail)) {
+      agentEmail = e;
+      console.log('[YL-Logger] Agent email detected:', e);
+    }
   }
 
   function sniffWorkEmail(text) {
-    if (agentEmail) return;
+    if (agentEmail && !isPlatformOrFakeEmail(agentEmail)) return; // already have a good email
     const e = extractEmailFromJwt(text) || extractWorkEmail(text);
-    if (e) { agentEmail = e; console.log('[YL-Logger] Agent email detected (work):', e); }
+    if (e && !isPlatformOrFakeEmail(e)) {
+      agentEmail = e;
+      console.log('[YL-Logger] Agent email detected (work):', e);
+    }
   }
 
   function sniffEmbeddedPageData() {
@@ -258,11 +283,14 @@
   function setAgentStatus(newStatus, source) {
     const email = agentEmail || detectAgentEmail();
     if (!email) return;
-    if (!_presenceStarted) {
+    const today = currentIstDayKey();
+    // Fire a fresh login event on first start OR when the IST date has rolled over midnight
+    if (!_presenceStarted || _lastLoggedDate !== today) {
       _presenceStarted = true;
       _agentStatus     = newStatus;
+      _lastLoggedDate  = today;
       postPresenceEvent('login', newStatus);
-      console.log('[YL-Logger] Presence login:', newStatus, '|', source);
+      console.log('[YL-Logger] Presence login:', newStatus, '|', source, '| date:', today);
     } else if (_agentStatus !== newStatus) {
       _agentStatus = newStatus;
       postPresenceEvent('status_change', newStatus);
@@ -332,7 +360,7 @@
   function startEmailDetectionLoop() {
     if (_detectInterval) return;
     _detectInterval = setInterval(() => {
-      if (agentEmail) {
+      if (agentEmail && !isPlatformOrFakeEmail(agentEmail)) {
         clearInterval(_detectInterval);
         _detectInterval = null;
         // Always start presence as soon as email is known — don't wait for "available" signal
@@ -351,12 +379,14 @@
   function startAvailableDetectionLoop() {
     if (_availableInterval) return;
     _availableInterval = setInterval(() => {
-      if (pageShowsAvailableStatus()) {
-        ensureAttendance('dom-available');        // sets status → Available
-      } else if (pageShowsBusyStatus()) {
+      // Check Busy/Away before Available — the status picker often shows "Available"
+      // as a switch-to option even when the agent is currently Busy/Away.
+      if (pageShowsBusyStatus()) {
         if (agentEmail) setAgentStatus('Busy', 'dom-poll');
       } else if (pageShowsAwayStatus()) {
         if (agentEmail) setAgentStatus('Away', 'dom-poll');
+      } else if (pageShowsAvailableStatus()) {
+        ensureAttendance('dom-available');        // sets status → Available
       }
     }, 5000);
   }
@@ -393,9 +423,9 @@
       });
       return;
     }
-    const key = ticketId;
+    const key = ticketId + '|' + status;
     const now = Date.now();
-    // Suppress any re-fire for the same ticket within 10 minutes (prevents false Resolved after On Hold)
+    // Suppress duplicate fires for the same ticket+status within 10 minutes
     if (recentLogs[key] && now - recentLogs[key] < 600000) return;
     recentLogs[key] = now;
     const agent = detectAgentEmail() || 'unknown';
@@ -474,7 +504,7 @@
           setTimeout(() => { if (_presenceStarted) setAgentStatus('Away', 'fetch:' + url); }, 150);
         }
         const combinedLower = combined.toLowerCase();
-        if (/resolv|"status"\s*:\s*"resolved"/i.test(combinedLower)) {
+        if (/(?<!un)resolv|"status"\s*:\s*"resolved"/i.test(combinedLower)) {
           setTimeout(() => logEntry('Resolved', url, body), 400);
         } else if (/on.?hold|onhold|"status"\s*:\s*"hold"/i.test(combinedLower)) {
           const hasTicketInCall = !!(extractTicketIdFromText(url) || extractTicketIdFromText(body));
@@ -513,7 +543,7 @@
         } else if (isAwaySignal(combined)) {
           setTimeout(() => { if (_presenceStarted) setAgentStatus('Away', 'xhr:' + (this._ylUrl || '')); }, 150);
         }
-        if (/resolv/.test(combined)) {
+        if (/(?<!un)resolv/.test(combined)) {
           setTimeout(() => logEntry('Resolved', this._ylUrl, body), 400);
         } else if (/on.?hold|onhold/.test(combined)) {
           const hasTicketInCall = !!(extractTicketIdFromText(this._ylUrl) || extractTicketIdFromText(body));

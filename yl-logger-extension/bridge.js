@@ -55,8 +55,8 @@ window.addEventListener('message', function (e) {
   // Block fake/invalid ticket IDs: auto-generated Ticket-XXXXX or non 3-5 digit numbers
   if (!entry.ticketId || /^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) return;
 
-  // Synchronous dedup — block duplicate Firebase pushes within 10 minutes
-  const key = entry.ticketId;
+  // Synchronous dedup — block duplicate Firebase pushes for the same ticket+status within 10 minutes
+  const key = entry.ticketId + '|' + entry.status;
   const now = Date.now();
   if (recentPushes[key] && now - recentPushes[key] < 600000) return;
   recentPushes[key] = now; // set immediately to block any rapid duplicates

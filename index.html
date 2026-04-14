@@ -80,6 +80,8 @@
   .entry-time { color: #666; font-size: 11px; }
   .entry-del { background: none; border: none; color: #555; cursor: pointer; font-size: 16px; padding: 0 4px; line-height: 1; }
   .entry-del:hover { color: #e55; }
+  .entry-toggle { background: none; border: 1px solid #444; border-radius: 4px; color: #888; cursor: pointer; font-size: 10px; font-weight: 600; padding: 2px 6px; line-height: 1.4; white-space: nowrap; }
+  .entry-toggle:hover { border-color: #aaa; color: #ccc; }
 
   .agent-row { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; animation: fadeIn 0.3s ease; }
   .agent-row:last-child { border-bottom: none; }
@@ -424,15 +426,23 @@ function renderLogBoard() {
   document.getElementById('summary').style.display = 'none';
 
   // Flatten + validate + date filter
-  const allEntries = [];
+  const rawEntries = [];
   for (const agentKey of Object.keys(allData)) {
     for (const entry of Object.values(allData[agentKey])) {
       if (!entry || !entry.ticketId) continue;
       if (/^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) continue;
       if (!entryMatchesDate(entry)) continue;
-      allEntries.push({ ...entry, _agentKey: agentKey });
+      rawEntries.push({ ...entry, _agentKey: agentKey });
     }
   }
+
+  // Deduplicate: keep only the latest entry per ticketId (highest id = most recent)
+  const byTicket = {};
+  for (const entry of rawEntries) {
+    const prev = byTicket[entry.ticketId];
+    if (!prev || entry.id > prev.id) byTicket[entry.ticketId] = entry;
+  }
+  const allEntries = Object.values(byTicket);
 
   if (allEntries.length === 0) {
     board.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No entries yet</strong><p>Entries appear here instantly as agents log tickets on Yellow.ai</p></div>`;
@@ -528,6 +538,7 @@ function renderLogBoard() {
                 <span class="entry-ticket">#${e.ticketId}</span>
                 <span class="entry-agent">${displayName(e.agentEmail || e._agentKey)}</span>
                 <span class="entry-time">${e.timestamp}</span>
+                <button class="entry-toggle" onclick="toggleStatus('${e._agentKey}','${e.id}','${e.status}')" title="Toggle status">${e.status === 'Resolved' ? '→ On Hold' : '→ Resolve'}</button>
                 <button class="entry-del" onclick="deleteEntry('${e._agentKey}','${e.id}')" title="Delete">×</button>
               </div>`).join('')}
           </div>
@@ -541,6 +552,22 @@ function renderLogBoard() {
 function toggleSlot(key) {
   document.getElementById('srep-'  + key).classList.toggle('open');
   document.getElementById('schev-' + key).classList.toggle('open');
+}
+
+function toggleStatus(agentKey, entryId, currentStatus) {
+  const newStatus = currentStatus === 'Resolved' ? 'On Hold' : 'Resolved';
+  if (!confirm(`Mark ticket as ${newStatus}?`)) return;
+  const entry = allData[agentKey] && allData[agentKey][entryId];
+  if (!entry) return;
+  const updated = { ...entry, status: newStatus };
+  fetch(`${FIREBASE_URL}/entries/${agentKey}/${entryId}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updated)
+  }).then(() => {
+    allData[agentKey][entryId] = updated;
+    renderAll(allData);
+  }).catch(() => alert('Update failed.'));
 }
 
 function deleteEntry(agentKey, entryId) {
@@ -561,10 +588,17 @@ function clearAllData() {
 }
 
 // ── Real-time Firebase SSE ──
+let _connRetryDelay = 2000;
+let _connRetryTimer = null;
+let _connSrc = null;
+
 function connect() {
+  if (_connSrc) { try { _connSrc.close(); } catch(_) {} }
   const src = new EventSource(FIREBASE_URL + '/entries.json');
+  _connSrc = src;
 
   src.addEventListener('put', function(e) {
+    _connRetryDelay = 2000; // reset backoff on success
     const msg = JSON.parse(e.data);
     if (msg.path === '/') {
       renderAll(msg.data);
@@ -597,8 +631,17 @@ function connect() {
   });
 
   src.onerror = function() {
+    src.close();
+    _connSrc = null;
+    const delaySec = Math.round(_connRetryDelay / 1000);
     document.getElementById('connDot').className = 'conn-dot';
-    document.getElementById('connStatus').textContent = 'Reconnecting…';
+    document.getElementById('connStatus').textContent =
+      _connRetryDelay >= 30000
+        ? 'Connection failed — check Firebase'
+        : `Reconnecting in ${delaySec}s…`;
+    clearTimeout(_connRetryTimer);
+    _connRetryTimer = setTimeout(connect, _connRetryDelay);
+    _connRetryDelay = Math.min(_connRetryDelay * 2, 60000);
   };
 }
 
@@ -708,11 +751,10 @@ function renderSessions() {
 
   const dateKey = activeDateFilter || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
-  // Collect sessions for selected date — only agents who have ticket history (filters test/random accounts)
+  // Collect sessions for selected date — all agents with presence data
   const onlineCards = [], offlineCards = [];
   for (const [agentKey, dates] of Object.entries(livePresence)) {
     if (!dates || typeof dates !== 'object') continue;
-    if (!allData[agentKey]) continue;
     const session = dates[dateKey];
     if (!session) continue;
     const online = sessIsOnline(agentKey, session);
