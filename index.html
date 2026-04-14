@@ -564,18 +564,20 @@ function toggleStatus(agentKey, entryId, currentStatus) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updated)
-  }).then(() => {
-    allData[agentKey][entryId] = updated;
-    renderAll(allData);
+  }).then(res => {
+    if (!res.ok) { alert('Update failed.'); return; }
+    if (allData[agentKey]) allData[agentKey][entryId] = updated;
+    render();
   }).catch(() => alert('Update failed.'));
 }
 
 function deleteEntry(agentKey, entryId) {
   if (!confirm('Delete this entry?')) return;
   fetch(`${FIREBASE_URL}/entries/${agentKey}/${entryId}.json`, { method: 'DELETE' })
-    .then(() => {
+    .then(res => {
+      if (!res.ok) { alert('Delete failed.'); return; }
       if (allData[agentKey]) delete allData[agentKey][entryId];
-      renderAll(allData);
+      render();
     })
     .catch(() => alert('Delete failed.'));
 }
