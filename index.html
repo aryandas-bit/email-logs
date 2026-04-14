@@ -552,13 +552,12 @@ function toggleSlot(key) {
 }
 
 function deleteEntry(agentKey, entryId) {
-  if (!confirm('Delete this entry?')) return;
   fetch(`${FIREBASE_URL}/entries/${agentKey}/${entryId}.json`, { method: 'DELETE' })
     .then(() => {
       if (allData[agentKey]) delete allData[agentKey][entryId];
       render();
     })
-    .catch(() => alert('Delete failed.'));
+    .catch(() => {});
 }
 
 function clearAllData() {
