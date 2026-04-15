@@ -97,11 +97,25 @@ def generate_report(report_date: date, post_to_slack: bool = True):
     total_onhold   = sum(a['onhold']   for a in agents.values())
     total_solved   = total_resolved + total_onhold
 
-    email_agents     = sorted(n for n in agents if n in EMAIL_TEAM)
-    non_email_agents = sorted(n for n in agents if n not in EMAIL_TEAM)
+    # Sort each group by total tickets descending
+    email_agents     = sorted(
+        [(n, agents[n]) for n in agents if n in EMAIL_TEAM],
+        key=lambda x: x[1]['resolved'] + x[1]['onhold'], reverse=True
+    )
+    non_email_agents = sorted(
+        [(n, agents[n]) for n in agents if n not in EMAIL_TEAM],
+        key=lambda x: x[1]['resolved'] + x[1]['onhold'], reverse=True
+    )
 
-    def bullet_list(names):
-        return '\n'.join(f'    • {n}' for n in names) if names else '    —'
+    def bullet_list(agent_list):
+        if not agent_list:
+            return '    —'
+        rows = []
+        for name, a in agent_list:
+            total  = a['resolved'] + a['onhold']
+            detail = f"R:{a['resolved']} H:{a['onhold']}"
+            rows.append(f"    • {name} — {total} ({detail})")
+        return '\n'.join(rows)
 
     lines = [
         f"*Daily Report — {date_label}*",
