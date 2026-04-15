@@ -134,9 +134,8 @@ def generate_report(report_date: date, post_to_slack: bool = True):
         bullet_list(non_email_agents),
     ]
 
-    # Tag Parth Saluja on every daily report
-    mention = "<@U08HCJ99XPC>\n"
-    message  = mention + '\n'.join(lines)
+    # Tag Parth Saluja at the bottom of every daily report
+    message = '\n'.join(lines) + "\n\n<@U08HCJ99XPC>"
     print(message)
 
     if post_to_slack:
