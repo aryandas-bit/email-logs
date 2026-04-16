@@ -69,12 +69,15 @@ for (email, tid), info in ticket_events.items():
     local = re.sub(r'_ext$', '', local)
     name  = ' '.join(w.capitalize() for w in re.split(r'[._]', local))
     if name not in agents:
-        agents[name] = {'total': 0, 'resolved': 0, 'onhold': 0}
-    agents[name]['total'] += 1
+        agents[name] = {'resolved': 0, 'onhold': 0}
     if info['ever_resolved']:
         agents[name]['resolved'] += 1
     if info['ever_onhold']:
         agents[name]['onhold'] += 1
+
+# Total = resolved + onhold so the math is always consistent in the table
+for name in agents:
+    agents[name]['total'] = agents[name]['resolved'] + agents[name]['onhold']
 
 sorted_agents = sorted(agents.items(), key=lambda x: x[1]['total'], reverse=True)
 

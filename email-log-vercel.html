@@ -270,9 +270,9 @@
     const summary = document.getElementById('summaryBar');
     const btn     = document.getElementById('extractBtn');
 
-    const total    = tickets.length;
     const resolved = tickets.filter(t => t.everResolved).length;
     const onhold   = tickets.filter(t => t.everOnHold).length;
+    const total    = resolved + onhold;
 
     const slotStr = slotHour === 'all' ? 'All day' : slotLabel(parseInt(slotHour));
     summary.innerHTML =
