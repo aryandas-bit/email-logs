@@ -434,11 +434,13 @@ function renderLogBoard() {
     }
   }
 
-  // Deduplicate: keep only the latest entry per ticketId (highest id = most recent)
+  // Deduplicate multi-tab pushes: key by agent + ticket + status so both
+  // an On Hold and a Resolved entry for the same ticket are preserved.
   const byTicket = {};
   for (const entry of rawEntries) {
-    const prev = byTicket[entry.ticketId];
-    if (!prev || entry.id > prev.id) byTicket[entry.ticketId] = entry;
+    const key  = `${entry._agentKey}|${entry.ticketId}|${entry.status}`;
+    const prev = byTicket[key];
+    if (!prev || entry.id > prev.id) byTicket[key] = entry;
   }
   const allEntries = Object.values(byTicket);
 
