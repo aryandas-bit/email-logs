@@ -29,8 +29,42 @@ def ordinal(n):
     suffix = {1: 'st', 2: 'nd', 3: 'rd'}
     return str(n) + suffix.get(n % 10 if n % 100 not in (11, 12, 13) else 0, 'th')
 
+GAP_THRESHOLD_HOURS = 2
+
+def calc_working_hours(timestamps):
+    if len(timestamps) < 2:
+        return 0
+    sorted_ts = sorted(timestamps)
+    total_secs = 0
+    session_start = sorted_ts[0]
+    prev = sorted_ts[0]
+    for ts in sorted_ts[1:]:
+        if (ts - prev).total_seconds() / 3600 > GAP_THRESHOLD_HOURS:
+            total_secs += (prev - session_start).total_seconds()
+            session_start = ts
+        prev = ts
+    total_secs += (prev - session_start).total_seconds()
+    return total_secs / 3600
+
+def build_table(agent_list):
+    c1, c2, c3, c4, c5 = 3, 22, 10, 9, 7
+    top = f"┌{'─'*(c1+2)}┬{'─'*(c2+2)}┬{'─'*(c3+2)}┬{'─'*(c4+2)}┬{'─'*(c5+2)}┐"
+    mid = f"├{'─'*(c1+2)}┼{'─'*(c2+2)}┼{'─'*(c3+2)}┼{'─'*(c4+2)}┼{'─'*(c5+2)}┤"
+    bot = f"└{'─'*(c1+2)}┴{'─'*(c2+2)}┴{'─'*(c3+2)}┴{'─'*(c4+2)}┴{'─'*(c5+2)}┘"
+
+    def row(a, b, c, d, e):
+        return f"│ {str(a):<{c1}} │ {str(b):<{c2}} │ {str(c):>{c3}} │ {str(d):>{c4}} │ {str(e):>{c5}} │"
+
+    rows = [top, row("#", "Agent", "Resolved", "On Hold", "Total"), mid]
+    for i, (name, a) in enumerate(agent_list, 1):
+        total = a['resolved'] + a['onhold']
+        r     = str(a['resolved']) if a['resolved'] else "—"
+        h     = str(a['onhold'])   if a['onhold']   else "—"
+        rows.append(row(i, name, r, h, total))
+    rows.append(bot)
+    return rows
+
 def generate_report(report_date: date, post_to_slack: bool = True):
-    # 7:00 AM IST on report_date → 7:00 AM IST on the following day
     slot_start = datetime(report_date.year, report_date.month, report_date.day, 7, 0, 0, tzinfo=ist)
     slot_end   = slot_start + timedelta(days=1)
 
@@ -40,7 +74,6 @@ def generate_report(report_date: date, post_to_slack: bool = True):
         f"{slot_end.strftime('%-d %b %Y, %I:%M %p')} IST"
     )
 
-    # Fetch all entries from Firebase
     url = 'https://yl-logs-default-rtdb.firebaseio.com/entries.json'
     try:
         with urllib.request.urlopen(url) as r:
@@ -53,7 +86,6 @@ def generate_report(report_date: date, post_to_slack: bool = True):
         print("No data in Firebase — skipping.")
         sys.exit(0)
 
-    # Aggregate tickets per agent within the window
     agents = {}
     for agent_key, entries in data.items():
         if not isinstance(entries, dict):
@@ -62,30 +94,32 @@ def generate_report(report_date: date, post_to_slack: bool = True):
             tid = str(entry.get('ticketId', ''))
             ts  = entry.get('timestamp', '')
 
-            # Ticket ID validation (same rules as hourly_report.py)
             if not re.match(r'^\d{1,5}$', tid):
                 continue
             if re.match(r'^Ticket-\d+$', tid, re.I):
                 continue
 
-            # Parse timestamp
             try:
                 entry_dt = datetime.strptime(ts.strip(), '%d %b %Y, %I:%M:%S %p').replace(tzinfo=ist)
             except ValueError:
                 continue
 
-            # Keep only entries within the window
             if not (slot_start <= entry_dt < slot_end):
                 continue
 
-            # Only @ultrahuman.com agents
             email = entry.get('agentEmail') or agent_key
             if not isinstance(email, str) or not email.endswith('@ultrahuman.com'):
                 continue
 
             name = email_to_name(email)
             if name not in agents:
-                agents[name] = {'resolved': 0, 'onhold': 0}
+                agents[name] = {'resolved': 0, 'onhold': 0, 'ts_list': [], 'first_ts': entry_dt, 'last_ts': entry_dt}
+
+            agents[name]['ts_list'].append(entry_dt)
+            if entry_dt < agents[name]['first_ts']:
+                agents[name]['first_ts'] = entry_dt
+            if entry_dt > agents[name]['last_ts']:
+                agents[name]['last_ts'] = entry_dt
 
             status = entry.get('status', '')
             if status == 'Resolved':
@@ -97,8 +131,15 @@ def generate_report(report_date: date, post_to_slack: bool = True):
     total_onhold   = sum(a['onhold']   for a in agents.values())
     total_solved   = total_resolved + total_onhold
 
-    # Sort each group by total tickets descending
-    email_agents     = sorted(
+    if agents:
+        overall_first = min(a['first_ts'] for a in agents.values())
+        overall_last  = max(a['last_ts']  for a in agents.values())
+        overall_hours = (overall_last - overall_first).total_seconds() / 3600
+        avg_per_hour  = total_solved / overall_hours if overall_hours >= 0.25 else total_solved
+    else:
+        avg_per_hour  = 0
+
+    email_agents = sorted(
         [(n, agents[n]) for n in agents if n in EMAIL_TEAM],
         key=lambda x: x[1]['resolved'] + x[1]['onhold'], reverse=True
     )
@@ -107,40 +148,30 @@ def generate_report(report_date: date, post_to_slack: bool = True):
         key=lambda x: x[1]['resolved'] + x[1]['onhold'], reverse=True
     )
 
-    def bullet_list(agent_list):
-        if not agent_list:
-            return '    —'
-        rows = []
-        for name, a in agent_list:
-            total  = a['resolved'] + a['onhold']
-            detail = f"R:{a['resolved']} H:{a['onhold']}"
-            rows.append(f"    • {name} — {total} ({detail})")
-        return '\n'.join(rows)
-
     lines = [
         f"*Daily Report — {date_label}*",
-        f"_Window: {time_range}_",
+        f"_{time_range}_",
         "",
-        f"*Tickets Solved: {total_solved}*",
-        f"  • Resolved: {total_resolved}",
-        f"  • On Hold: {total_onhold}",
-        "",
-        f"*Total Agents Working: {len(agents)}*",
-        "",
-        f"*Email Agents Working: {len(email_agents)}*",
-        bullet_list(email_agents),
-        "",
-        f"*Non-Email Agents Working: {len(non_email_agents)}*",
-        bullet_list(non_email_agents),
+        f"*Tickets Solved: {total_solved}*   ·   *Resolved: {total_resolved}*   ·   *On Hold: {total_onhold}*",
+        f"*Total Agents: {len(agents)}*",
     ]
 
-    # Tag Parth Saluja at the bottom of every daily report
-    message = '\n'.join(lines) + "\n\n<@U08HCJ99XPC>"
+    if email_agents:
+        lines += ["", f"*Email Team ({len(email_agents)} agents)*", "```"]
+        lines += build_table(email_agents)
+        lines += ["```"]
+
+    if non_email_agents:
+        lines += ["", f"*Non-Email Agents ({len(non_email_agents)} agents)*", "```"]
+        lines += build_table(non_email_agents)
+        lines += ["```"]
+
+    lines += ["", "cc: <@U08HCJ99XPC>"]
+
+    message = '\n'.join(lines)
     print(message)
 
     if post_to_slack:
-        # Use a channel-specific webhook for #cx-email-team; fall back to the
-        # generic webhook if the dedicated one is not set.
         webhook_url = (
             os.environ.get('DAILY_REPORT_SLACK_WEBHOOK_URL') or
             os.environ.get('SLACK_WEBHOOK_URL')
@@ -160,7 +191,7 @@ if __name__ == '__main__':
         '--date',
         type=str,
         metavar='YYYY-MM-DD',
-        help='Report date (default: yesterday in IST, i.e. the window that just closed)',
+        help='Report date (default: yesterday in IST)',
         default=None,
     )
     parser.add_argument(
@@ -177,7 +208,6 @@ if __name__ == '__main__':
             print(f"Invalid date '{args.date}'. Use YYYY-MM-DD.")
             sys.exit(1)
     else:
-        # Default: report on the window that just closed at 7 AM today
         now_ist = datetime.now(ist)
         report_date = (now_ist - timedelta(days=1)).date()
 
