@@ -8,279 +8,385 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f8f9fa;
-    min-height: 100vh;
-    padding: 32px 20px;
+    background: #f8f9fa; min-height: 100vh; padding: 32px 20px;
   }
-  .container { max-width: 800px; margin: 0 auto; }
+  .container { max-width: 900px; margin: 0 auto; }
 
-  /* Header */
   .header {
     display: flex; justify-content: space-between; align-items: flex-start;
-    flex-wrap: wrap; gap: 12px; margin-bottom: 28px;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
   }
   .header h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-  .header p { font-size: 14px; color: #888; margin-top: 4px; }
+  .header p  { font-size: 13px; color: #888; margin-top: 4px; }
 
+  .controls {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .controls select, .controls input[type="date"] {
+    padding: 8px 12px; border-radius: 8px; border: 1.5px solid #ddd;
+    font-size: 14px; color: #333; background: #fff; cursor: pointer;
+  }
+  .controls select:focus, .controls input[type="date"]:focus {
+    outline: none; border-color: #4a90d9;
+  }
   .btn-extract {
-    padding: 10px 20px; border-radius: 8px; border: none;
+    padding: 9px 18px; border-radius: 8px; border: none;
     background: #ccc; color: #fff; font-size: 14px; font-weight: 600;
     cursor: not-allowed; display: flex; align-items: center; gap: 6px;
-    transition: background 0.2s;
   }
   .btn-extract.active { background: #2e7d32; cursor: pointer; }
   .btn-extract.active:hover { background: #1b5e20; }
 
-  /* Action buttons */
-  .action-row {
-    display: flex; gap: 12px; margin-bottom: 24px; align-items: center; flex-wrap: wrap;
+  .summary-bar {
+    background: #fff; border-radius: 10px; padding: 12px 18px;
+    font-size: 14px; color: #555; margin-bottom: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06); display: flex; gap: 24px; flex-wrap: wrap;
   }
-  .action-hint {
-    font-size: 13px; color: #999; flex: 1;
-  }
-  .btn-resolved {
-    padding: 12px 24px; border-radius: 8px; border: none;
-    background: #2e7d32; color: #fff; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: background 0.2s; white-space: nowrap;
-  }
-  .btn-resolved:hover { background: #1b5e20; }
-  .btn-onhold {
-    padding: 12px 24px; border-radius: 8px; border: none;
-    background: #f5a623; color: #fff; font-size: 15px; font-weight: 600;
-    cursor: pointer; transition: background 0.2s; white-space: nowrap;
-  }
-  .btn-onhold:hover { background: #d4891a; }
+  .summary-bar b { color: #1a1a2e; }
+  .s-resolved { color: #2e7d32; font-weight: 700; }
+  .s-onhold   { color: #e65100; font-weight: 700; }
 
-  /* Toast */
-  .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: #333; color: #fff; padding: 10px 20px; border-radius: 8px;
-    font-size: 13px; opacity: 0; pointer-events: none;
-    transition: opacity 0.25s;
-  }
-  .toast.show { opacity: 1; }
-
-  /* Table */
   .table-wrap {
     background: #fff; border-radius: 12px; overflow: hidden;
     box-shadow: 0 1px 6px rgba(0,0,0,0.08);
   }
   .table-header {
-    display: grid; grid-template-columns: 60px 1.4fr 1.5fr 1fr 50px;
-    padding: 12px 18px; background: #f1f3f5; font-weight: 700;
-    font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 0.5px;
+    display: grid; grid-template-columns: 46px 1.6fr 88px 1.8fr 100px;
+    padding: 11px 18px; background: #f1f3f5; font-weight: 700;
+    font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;
   }
-  .empty-state {
-    padding: 40px 18px; text-align: center; color: #aaa; font-size: 14px;
-  }
+  .empty-state { padding: 40px 18px; text-align: center; color: #aaa; font-size: 14px; }
   .table-row {
-    display: grid; grid-template-columns: 60px 1.4fr 1.5fr 1fr 50px;
-    padding: 12px 18px; align-items: center; border-top: 1px solid #f0f0f0;
-    font-size: 14px; transition: background 0.15s;
+    display: grid; grid-template-columns: 46px 1.6fr 88px 1.8fr 100px;
+    padding: 11px 18px; align-items: center; border-top: 1px solid #f0f0f0;
+    font-size: 14px; transition: background 0.1s;
   }
   .table-row:hover { background: #fafbfc; }
-  .row-num { color: #999; font-weight: 600; }
-  .row-ticket {
-    font-weight: 600; color: #1a1a2e; font-family: monospace; font-size: 13px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    max-width: 180px;
-  }
-  .row-time { color: #666; font-size: 13px; }
-
-  /* Status badges */
+  .row-num    { color: #bbb; font-weight: 600; font-size: 13px; }
+  .row-agent  { font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-ticket { font-family: monospace; font-size: 13px; color: #444; font-weight: 600; }
+  .row-time   { color: #888; font-size: 12px; }
   .status-badge {
-    padding: 4px 10px; border-radius: 14px; font-size: 12px;
-    font-weight: 600; cursor: pointer; outline: none;
+    padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 600;
+    display: inline-block; white-space: nowrap;
   }
   .status-resolved { background: #e8f5e9; color: #2e7d32; border: 1.5px solid #a5d6a7; }
-  .status-onhold { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
+  .status-onhold   { background: #fff3e0; color: #e65100; border: 1.5px solid #ffcc80; }
 
-  /* Remove button */
-  .btn-remove {
-    background: none; border: none; color: #ccc; font-size: 18px;
-    cursor: pointer; transition: color 0.2s;
-  }
-  .btn-remove:hover { color: #e74c3c; }
-
-  /* Footer */
   .table-footer {
     padding: 10px 18px; background: #f9fafb; border-top: 1px solid #f0f0f0;
     font-size: 13px; color: #888; display: flex; justify-content: space-between;
   }
   .table-footer b { color: #333; }
   .count-resolved { color: #2e7d32; }
-  .count-onhold { color: #e65100; }
+  .count-onhold   { color: #e65100; }
 </style>
 </head>
 <body>
 <div class="container">
-  <!-- Header -->
   <div class="header">
     <div>
       <h1>Email Log Sheet</h1>
-      <p>Auto-synced from Yellow.ai · or copy a ticket ID and click a button</p>
+      <p id="lastRefresh">Connecting to Firebase...</p>
     </div>
+  </div>
+
+  <div class="controls">
+    <input type="date" id="datePicker" />
+    <select id="slotPicker"></select>
     <button class="btn-extract" id="extractBtn" onclick="extractCSV()">
-      <span style="font-size:16px">⬇</span> Extract CSV
+      <span style="font-size:15px">⬇</span> Extract CSV
     </button>
   </div>
 
-  <!-- Action Buttons -->
-  <div class="action-row">
-    <button class="btn-resolved" onclick="logFromClipboard('Resolved')">✓ Resolved</button>
-    <button class="btn-onhold" onclick="logFromClipboard('On Hold')">⏸ On Hold</button>
-    <span class="action-hint">Entries auto-appear from Yellow.ai · clipboard buttons work as backup</span>
-  </div>
+  <div class="summary-bar" id="summaryBar"><span>Loading...</span></div>
 
-  <!-- Table -->
   <div class="table-wrap">
     <div class="table-header">
-      <span>#</span><span>Email / Ticket</span><span>Timestamp</span><span>Status</span><span></span>
+      <span>#</span><span>Agent</span><span>Ticket ID</span><span>Timestamp</span><span>Status</span>
     </div>
-    <div id="tableBody">
-      <div class="empty-state">No entries yet. Copy an email or ticket ID and click a button above.</div>
-    </div>
+    <div id="tableBody"><div class="empty-state">Fetching entries...</div></div>
     <div id="tableFooter" style="display:none" class="table-footer">
-      <span>Total entries: <b id="totalCount">0</b></span>
-      <span>Resolved: <b class="count-resolved" id="resolvedCount">0</b> · On Hold: <b class="count-onhold" id="onholdCount">0</b></span>
+      <span>Total: <b id="totalCount">0</b></span>
+      <span>Resolved: <b class="count-resolved" id="resolvedCount">0</b> &nbsp;·&nbsp; On Hold: <b class="count-onhold" id="onholdCount">0</b></span>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <script>
-  let entries = JSON.parse(localStorage.getItem('yl_entries') || '[]');
+  const FIREBASE_URL  = 'https://yl-logs-default-rtdb.firebaseio.com';
+  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+  const MONTHS_MAP    = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+  const MONTHS_PAD    = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12' };
 
-  function save() {
-    localStorage.setItem('yl_entries', JSON.stringify(entries));
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  function istToday() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   }
 
-  // Handle entry passed via URL params (from bookmarklet)
-  (function () {
-    const p = new URLSearchParams(location.search);
-    const ticket = p.get('ticket');
-    const status = p.get('status');
-    if (ticket && status) {
-      const ts = new Date().toLocaleString('en-IN', {
-        year: 'numeric', month: 'short', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-      });
-      entries.push({ id: Date.now(), ticketId: ticket, timestamp: ts, status });
-      save();
-      // Clean URL without reloading
-      history.replaceState(null, '', location.pathname);
-    }
-  })();
-
-  function showToast(msg, color) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.style.background = color || '#333';
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2200);
+  function istCurrentHour() {
+    return new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }) | 0;
   }
 
-  async function logFromClipboard(status) {
-    let text = '';
-    try {
-      text = await navigator.clipboard.readText();
-    } catch (e) {
-      showToast('Clipboard access denied. Allow clipboard permission and try again.', '#c0392b');
-      return;
+  function nameFromEmail(email) {
+    const local = (email || '').split('@')[0].replace(/_ext$/, '');
+    return local.split(/[._]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  // Parse "16 Apr 2026, 03:00:13 pm" → UTC milliseconds
+  function parseTimestampMs(ts) {
+    const m = (ts || '').match(/(\d{1,2})\s+(\w{3})\s+(\d{4}),\s+(\d{1,2}):(\d{2}):(\d{2})\s+(am|pm)/i);
+    if (!m) return null;
+    let h = parseInt(m[4]);
+    const ampm = m[7].toLowerCase();
+    if (ampm === 'pm' && h !== 12) h += 12;
+    if (ampm === 'am' && h === 12) h = 0;
+    return Date.UTC(+m[3], MONTHS_MAP[m[2]], +m[1], h, +m[5], +m[6]) - IST_OFFSET_MS;
+  }
+
+  // YYYY-MM-DD in IST from UTC ms
+  function dateKeyFromMs(ms) {
+    const d = new Date(ms + IST_OFFSET_MS);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Slot label matching hourly_report.py output
+  function slotLabel(h) {
+    const fmt  = x => (x === 0 || x === 12) ? '12' : String(x % 12);
+    const ampm = x => x < 12 ? 'AM' : 'PM';
+    const end  = (h + 1) % 24;
+    return ampm(h) !== ampm(end)
+      ? `${fmt(h)} ${ampm(h)}–${fmt(end)} ${ampm(end)}`
+      : `${fmt(h)}–${fmt(end)} ${ampm(end)}`;
+  }
+
+  // Start/end UTC ms for a date+hour in IST
+  function slotBoundsMs(dateStr, hour) {
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    const startMs = Date.UTC(y, mo - 1, d, hour, 0, 0) - IST_OFFSET_MS;
+    return { startMs, endMs: startMs + 3600000 };
+  }
+
+  // ── Slot picker setup ────────────────────────────────────────────────────────
+
+  function buildSlotPicker() {
+    const sel = document.getElementById('slotPicker');
+    sel.innerHTML = '<option value="all">All day</option>';
+    for (let h = 0; h < 24; h++) {
+      const opt = document.createElement('option');
+      opt.value = h;
+      opt.textContent = slotLabel(h);
+      sel.appendChild(opt);
     }
+    // Default to previous completed hour (what was last posted to Slack)
+    const curHour = istCurrentHour();
+    sel.value = curHour > 0 ? curHour - 1 : 'all';
+  }
 
-    text = text.trim();
-    if (!text) {
-      showToast('Clipboard is empty — copy an email or ticket ID first.', '#888');
-      return;
+  // ── Raw event store ──────────────────────────────────────────────────────────
+
+  let rawEvents = []; // all valid events from Firebase
+
+  function parseRawEvents(data) {
+    if (!data || typeof data !== 'object') return [];
+    const seenExact = new Set();
+    const events = [];
+    for (const agentData of Object.values(data)) {
+      if (!agentData || typeof agentData !== 'object') continue;
+      for (const entry of Object.values(agentData)) {
+        const tid = String(entry.ticketId || '').trim();
+        if (!/^\d{1,5}$/.test(tid)) continue;
+        if (/^Ticket-\d+$/i.test(tid)) continue;
+        const email = entry.agentEmail || '';
+        if (!email.endsWith('@ultrahuman.com')) continue;
+        const exactKey = `${email}|${tid}|${entry.timestamp}`;
+        if (seenExact.has(exactKey)) continue;
+        seenExact.add(exactKey);
+        const tsMs = parseTimestampMs(entry.timestamp);
+        if (tsMs === null) continue;
+        events.push({
+          ticketId:  tid,
+          timestamp: entry.timestamp || '',
+          tsMs,
+          status:    entry.status || '',
+          email,
+          agentName: nameFromEmail(email),
+          sortKey:   entry.id || 0,
+        });
+      }
     }
+    return events;
+  }
 
-    // Use first line only if multi-line (e.g. full email pasted)
-    const label = text.split('\n')[0].trim().slice(0, 120);
+  // ── Compute tickets for selected date + slot (mirrors hourly_report.py) ──────
 
-    const now = new Date();
-    const ts = now.toLocaleString('en-IN', {
-      year: 'numeric', month: 'short', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+  function computeTickets(dateStr, slotHour) {
+    const isAllDay = slotHour === 'all';
+    const bounds   = isAllDay ? null : slotBoundsMs(dateStr, parseInt(slotHour));
+
+    // Filter events to selected date + slot
+    const inSlot = rawEvents.filter(e => {
+      if (dateKeyFromMs(e.tsMs) !== dateStr) return false;
+      if (!bounds) return true;
+      return e.tsMs >= bounds.startMs && e.tsMs < bounds.endMs;
     });
 
-    entries.push({ id: Date.now(), ticketId: label, timestamp: ts, status });
-    save();
-    render();
-
-    const color = status === 'Resolved' ? '#2e7d32' : '#f5a623';
-    showToast(`Logged as ${status}: ${label.slice(0, 40)}${label.length > 40 ? '…' : ''}`, color);
+    // Group by (email|tid): track ever-resolved, ever-on-hold, latest event for display
+    const tickets = {};
+    for (const e of inSlot) {
+      const key = `${e.email}|${e.ticketId}`;
+      if (!tickets[key]) {
+        tickets[key] = {
+          ticketId:     e.ticketId,
+          agentName:    e.agentName,
+          everResolved: false,
+          everOnHold:   false,
+          latestTs:     '',
+          latestStatus: '',
+          latestSortKey: 0,
+        };
+      }
+      if (e.status === 'Resolved') tickets[key].everResolved = true;
+      if (e.status === 'On Hold')  tickets[key].everOnHold   = true;
+      if (e.sortKey > tickets[key].latestSortKey) {
+        tickets[key].latestTs      = e.timestamp;
+        tickets[key].latestStatus  = e.status;
+        tickets[key].latestSortKey = e.sortKey;
+      }
+    }
+    return Object.values(tickets);
   }
 
-  function updateStatus(id, newStatus) {
-    const e = entries.find(x => x.id === id);
-    if (e) e.status = newStatus;
-    save();
-    render();
-  }
-
-  function removeEntry(id) {
-    entries = entries.filter(x => x.id !== id);
-    save();
-    render();
-  }
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   function render() {
-    const body = document.getElementById('tableBody');
-    const footer = document.getElementById('tableFooter');
-    const extractBtn = document.getElementById('extractBtn');
+    const dateStr  = document.getElementById('datePicker').value;
+    const slotHour = document.getElementById('slotPicker').value;
+    const tickets  = computeTickets(dateStr, slotHour);
 
-    if (entries.length === 0) {
-      body.innerHTML = '<div class="empty-state">No entries yet. Copy an email or ticket ID and click a button above.</div>';
+    const body    = document.getElementById('tableBody');
+    const footer  = document.getElementById('tableFooter');
+    const summary = document.getElementById('summaryBar');
+    const btn     = document.getElementById('extractBtn');
+
+    const total    = tickets.length;
+    const resolved = tickets.filter(t => t.everResolved).length;
+    const onhold   = tickets.filter(t => t.everOnHold).length;
+
+    const slotStr = slotHour === 'all' ? 'All day' : slotLabel(parseInt(slotHour));
+    summary.innerHTML =
+      `<span><b>${slotStr}</b></span>` +
+      `<span>Total: <b>${total}</b></span>` +
+      `<span>Resolved: <span class="s-resolved">${resolved}</span></span>` +
+      `<span>On Hold: <span class="s-onhold">${onhold}</span></span>`;
+
+    if (tickets.length === 0) {
+      body.innerHTML = '<div class="empty-state">No entries for this slot.</div>';
       footer.style.display = 'none';
-      extractBtn.classList.remove('active');
-      extractBtn.style.cursor = 'not-allowed';
+      btn.classList.remove('active');
       return;
     }
 
-    extractBtn.classList.add('active');
-    extractBtn.style.cursor = 'pointer';
+    btn.classList.add('active');
+    tickets.sort((a, b) => a.latestSortKey - b.latestSortKey);
 
     let html = '';
-    entries.forEach((e, i) => {
-      const cls = e.status === 'Resolved' ? 'status-resolved' : 'status-onhold';
-      const safe = e.ticketId.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    tickets.forEach((t, i) => {
+      const cls = t.latestStatus === 'Resolved' ? 'status-resolved' : 'status-onhold';
       html += `
         <div class="table-row">
           <span class="row-num">${i + 1}</span>
-          <span class="row-ticket" title="${safe}">${safe}</span>
-          <span class="row-time">${e.timestamp}</span>
-          <span>
-            <select class="status-badge ${cls}" onchange="updateStatus(${e.id}, this.value)">
-              <option value="Resolved" ${e.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-              <option value="On Hold" ${e.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
-            </select>
-          </span>
-          <span><button class="btn-remove" onclick="removeEntry(${e.id})" title="Remove">×</button></span>
+          <span class="row-agent">${t.agentName}</span>
+          <span class="row-ticket">${t.ticketId}</span>
+          <span class="row-time">${t.latestTs}</span>
+          <span><span class="status-badge ${cls}">${t.latestStatus}</span></span>
         </div>`;
     });
     body.innerHTML = html;
 
     footer.style.display = 'flex';
-    document.getElementById('totalCount').textContent = entries.length;
-    document.getElementById('resolvedCount').textContent = entries.filter(e => e.status === 'Resolved').length;
-    document.getElementById('onholdCount').textContent = entries.filter(e => e.status === 'On Hold').length;
+    document.getElementById('totalCount').textContent    = total;
+    document.getElementById('resolvedCount').textContent = resolved;
+    document.getElementById('onholdCount').textContent   = onhold;
   }
 
+  // ── CSV export ───────────────────────────────────────────────────────────────
+
   function extractCSV() {
-    if (entries.length === 0) return;
-    const header = 'Sr No,Email / Ticket,Timestamp,Status';
-    const rows = entries.map((e, i) => `${i + 1},"${e.ticketId.replace(/"/g, '""')}","${e.timestamp}","${e.status}"`);
-    const csv = [header, ...rows].join('\n');
+    const dateStr  = document.getElementById('datePicker').value;
+    const slotHour = document.getElementById('slotPicker').value;
+    const tickets  = computeTickets(dateStr, slotHour);
+    if (!tickets.length) return;
+
+    tickets.sort((a, b) => a.latestSortKey - b.latestSortKey);
+    const header = 'Sr No,Agent,Ticket ID,Timestamp,Status';
+    const rows = tickets.map((t, i) =>
+      `${i+1},"${t.agentName}","${t.ticketId}","${t.latestTs}","${t.latestStatus}"`
+    );
+    const csv  = [header, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `email_log_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `email_log_${dateStr}_${slotHour}.csv`;
+    a.click(); URL.revokeObjectURL(url);
   }
+
+  // ── Real-time Firebase sync ──────────────────────────────────────────────────
+
+  let sseSource = null;
+
+  function applyData(data) {
+    rawEvents = parseRawEvents(data);
+    render();
+    const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('lastRefresh').textContent = `Live from Firebase · updated ${now}`;
+  }
+
+  function startRealtimeSync() {
+    if (sseSource) sseSource.close();
+    sseSource = new EventSource(`${FIREBASE_URL}/entries.json`);
+
+    sseSource.addEventListener('put', (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.path === '/') {
+          applyData(msg.data);
+        } else {
+          fetchAndRender();
+        }
+      } catch (err) { console.error('[SSE put]', err); }
+    });
+
+    sseSource.addEventListener('patch', () => { fetchAndRender(); });
+
+    sseSource.onerror = () => {
+      sseSource.close();
+      setTimeout(startRealtimeSync, 5000);
+    };
+  }
+
+  async function fetchAndRender() {
+    try {
+      const res  = await fetch(`${FIREBASE_URL}/entries.json`);
+      const data = await res.json();
+      applyData(data);
+    } catch (err) {
+      document.getElementById('lastRefresh').textContent = 'Failed to load — retrying...';
+    }
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+
+  buildSlotPicker();
+
+  const datePicker = document.getElementById('datePicker');
+  const slotPicker = document.getElementById('slotPicker');
+  datePicker.value = istToday();
+  datePicker.addEventListener('change', render);
+  slotPicker.addEventListener('change', render);
+
+  startRealtimeSync();
 </script>
 </body>
 </html>

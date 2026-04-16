@@ -19,10 +19,20 @@ time_range = f"{slot_start.strftime('%-d %b %Y, %I:%M %p')} → {slot_end.strfti
 
 # Fetch Firebase
 url = 'https://yl-logs-default-rtdb.firebaseio.com/entries.json'
-with urllib.request.urlopen(url) as r:
-    data = json.loads(r.read())
+try:
+    with urllib.request.urlopen(url) as r:
+        data = json.loads(r.read())
+except Exception as e:
+    print(f"Failed to fetch Firebase data: {e}")
+    exit(1)
 
-agents = {}
+if not data:
+    print("No data in Firebase — skipping post.")
+    exit(0)
+
+# Per (email, ticketId): track whether ever resolved / ever on hold within the slot
+ticket_events = {}  # (email, tid) -> {'ever_resolved': bool, 'ever_onhold': bool, 'email': str}
+seen_exact    = set()
 for agent_key, entries in data.items():
     for entry in entries.values():
         tid = entry.get('ticketId', '')
@@ -40,16 +50,31 @@ for agent_key, entries in data.items():
         email = entry.get('agentEmail') or agent_key
         if not email.endswith('@ultrahuman.com'):
             continue
-        local = email.split('@')[0]
-        local = re.sub(r'_ext$', '', local)
-        name  = ' '.join(w.capitalize() for w in re.split(r'[._]', local))
-        if name not in agents:
-            agents[name] = {'total': 0, 'resolved': 0, 'onhold': 0}
-        agents[name]['total'] += 1
-        if entry.get('status') == 'Resolved':
-            agents[name]['resolved'] += 1
-        elif entry.get('status') == 'On Hold':
-            agents[name]['onhold'] += 1
+        exact_key = f"{email}|{tid}|{ts}"
+        if exact_key in seen_exact:
+            continue
+        seen_exact.add(exact_key)
+        key    = (email, tid)
+        status = entry.get('status', '')
+        if key not in ticket_events:
+            ticket_events[key] = {'ever_resolved': False, 'ever_onhold': False, 'email': email}
+        if status == 'Resolved':
+            ticket_events[key]['ever_resolved'] = True
+        elif status == 'On Hold':
+            ticket_events[key]['ever_onhold'] = True
+
+agents = {}
+for (email, tid), info in ticket_events.items():
+    local = info['email'].split('@')[0]
+    local = re.sub(r'_ext$', '', local)
+    name  = ' '.join(w.capitalize() for w in re.split(r'[._]', local))
+    if name not in agents:
+        agents[name] = {'total': 0, 'resolved': 0, 'onhold': 0}
+    agents[name]['total'] += 1
+    if info['ever_resolved']:
+        agents[name]['resolved'] += 1
+    if info['ever_onhold']:
+        agents[name]['onhold'] += 1
 
 sorted_agents = sorted(agents.items(), key=lambda x: x[1]['total'], reverse=True)
 
