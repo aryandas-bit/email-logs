@@ -149,6 +149,8 @@ def generate_report(report_date: date, post_to_slack: bool = True):
     )
 
     lines = [
+        "Tickets in, tickets out — here's the daily scorecard.",
+        "",
         f"*Daily Report — {date_label}*",
         f"_{time_range}_",
         "",
