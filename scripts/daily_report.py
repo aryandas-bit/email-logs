@@ -166,7 +166,7 @@ def generate_report(report_date: date, post_to_slack: bool = True):
         lines += build_table(non_email_agents)
         lines += ["```"]
 
-    lines += ["", "cc: <@U08HCJ99XPC>"]
+    lines += ["", "cc: <@U08HCJ99XPC> <@U05BZT4NNDS> <@U03RNK6EJDB> <!subteam^D0967C3KV0Q|cx-emailteam>"]
 
     message = '\n'.join(lines)
     print(message)
