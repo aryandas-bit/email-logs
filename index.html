@@ -819,8 +819,14 @@ function showAgentsModal() {
   // Build map of agents who have logged entries
   const loggedMap = {};
   for (const [key, entries] of Object.entries(allData)) {
-    const list = Object.values(entries).filter(e => e && e.ticketId && !/^Ticket-\d+$/i.test(e.ticketId) && /^\d{1,5}$/.test(e.ticketId) && entryMatchesDate(e));
-    if (!list.length) continue;
+    const raw = Object.values(entries).filter(e => e && e.ticketId && !/^Ticket-\d+$/i.test(e.ticketId) && /^\d{1,5}$/.test(e.ticketId) && entryMatchesDate(e));
+    if (!raw.length) continue;
+    const byTicket = {};
+    for (const e of raw) {
+      const dk = `${key}|${e.ticketId}|${e.status}`;
+      if (!byTicket[dk] || e.id > byTicket[dk].id) byTicket[dk] = e;
+    }
+    const list  = Object.values(byTicket);
     const email = list[0]?.agentEmail || key;
     const hb    = liveHeartbeats[key];
     loggedMap[displayName(email).toLowerCase()] = {
@@ -902,16 +908,21 @@ function extractShiftReport() {
   if (!Object.keys(allData).length) return;
 
   const agentTotals = {}; // email → {resolved, onhold}
+  const exportDedup = {};
   for (const agentKey of Object.keys(allData)) {
     for (const entry of Object.values(allData[agentKey])) {
       if (!entry || !entry.ticketId) continue;
       if (/^Ticket-\d+$/i.test(entry.ticketId) || !/^\d{1,5}$/.test(entry.ticketId)) continue;
       if (!entryMatchesDate(entry)) continue;
-      const email = entry.agentEmail || agentKey;
-      if (!agentTotals[email]) agentTotals[email] = { resolved: 0, onhold: 0 };
-      if (entry.status === 'Resolved') agentTotals[email].resolved++;
-      else if (entry.status === 'On Hold') agentTotals[email].onhold++;
+      const dk = `${agentKey}|${entry.ticketId}|${entry.status}`;
+      if (!exportDedup[dk] || entry.id > exportDedup[dk].id) exportDedup[dk] = { entry, agentKey };
     }
+  }
+  for (const { entry, agentKey } of Object.values(exportDedup)) {
+    const email = entry.agentEmail || agentKey;
+    if (!agentTotals[email]) agentTotals[email] = { resolved: 0, onhold: 0 };
+    if (entry.status === 'Resolved') agentTotals[email].resolved++;
+    else if (entry.status === 'On Hold') agentTotals[email].onhold++;
   }
 
   const dateLabel = activeDateFilter || 'All Dates';

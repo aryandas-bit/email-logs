@@ -97,11 +97,14 @@ async function handlePresenceEvent(evt) {
   let shouldPush = false;
 
   if (type === 'login') {
-    if (!session.loginTime) session.loginTime = now;
     session.lastHeartbeat = now;
 
-    if (state) {
-      // Redundant login — just freshen heartbeat / status
+    const staleGap = now - (state ? (state.lastHeartbeat || 0) : 0);
+    const isStaleState = state && !session.logoutTime && staleGap >= LOGOUT_THRESHOLD_MS;
+
+    if (state && !session.logoutTime && !isStaleState) {
+      // Truly redundant login — session is still active in memory with no recorded logout
+      if (!session.loginTime) session.loginTime = now;
       if (status && state.currentStatus !== status) {
         closeCurrentEntry(session, now);
         session.statusLog.push({ status, start: now, end: null, duration: null });
@@ -111,16 +114,23 @@ async function handlePresenceEvent(evt) {
       }
       active[email].lastHeartbeat = now;
     } else {
-      // Re-login on same day (after earlier logout): reopen session
-      if (session.logoutTime) {
-        session.logoutTime    = null;
-        session.totalDuration = 0;
+      // First login OR re-login after a same-day logout OR re-login after a long gap
+      // (also covers stale state where active[email] exists but logoutTime was recorded)
+      if (isStaleState) {
+        // Finalise the orphaned session before starting fresh
+        finaliseSession(session, (state.lastHeartbeat || now) + LOGOUT_THRESHOLD_MS);
+        pushSessionToFirebase(session);
       }
+      // Always start a clean session — reset ALL fields regardless of how we got here
+      session.loginTime     = now;
+      session.logoutTime    = null;
+      session.totalDuration = 0;
+      session.statusLog     = [];
       const s = status || 'Available';
       session.statusLog.push({ status: s, start: now, end: null, duration: null });
       active[email] = {
         currentStatus: s, currentStatusSince: now,
-        lastHeartbeat: now, date: today, loginTime: session.loginTime
+        lastHeartbeat: now, date: today, loginTime: now
       };
       shouldPush = true;
     }
@@ -165,8 +175,9 @@ async function handlePresenceEvent(evt) {
         active[email].currentStatusSince = now;
         shouldPush = true;
       }
-    } else {
-      // Background was restarted mid-session — reconstruct from heartbeat
+    } else if (session.loginTime) {
+      // Background SW was killed mid-session — safe to reconstruct because a proper
+      // login event already created today's session record.
       const s = status || 'Available';
       session.statusLog.push({ status: s, start: now, end: null, duration: null });
       active[email] = {
@@ -175,6 +186,8 @@ async function handlePresenceEvent(evt) {
       };
       shouldPush = true;
     }
+    // else: no session for today yet — don't auto-create from a heartbeat.
+    // The next status-detection cycle in inject.js will fire a proper login event.
 
   } else if (type === 'logout') {
     if (state) {
