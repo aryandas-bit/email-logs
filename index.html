@@ -170,6 +170,27 @@
   .sess-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
 
 
+  /* Daily report */
+  .dr-header-card { background:#fff; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.08); padding:16px 20px; margin-bottom:14px; }
+  .dr-date-range  { font-size:12px; color:#888; margin-top:3px; }
+  .dr-totals      { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+  .dr-chip        { font-size:13px; font-weight:700; }
+  .dr-sep         { color:#ddd; font-weight:400; }
+  .dr-section-title { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#bbb; margin:16px 0 8px; }
+  .dr-table-wrap  { background:#fff; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.08); overflow:hidden; margin-bottom:14px; }
+  .dr-table       { width:100%; border-collapse:collapse; font-size:13px; }
+  .dr-table th    { background:#f5f6f8; padding:9px 14px; text-align:left; font-size:11px; font-weight:700; color:#999; text-transform:uppercase; letter-spacing:.04em; }
+  .dr-table th:nth-child(n+3) { text-align:right; }
+  .dr-table td    { padding:11px 14px; border-top:1px solid #f3f3f3; color:#1a1a2e; vertical-align:middle; }
+  .dr-table td:nth-child(n+3) { text-align:right; font-variant-numeric:tabular-nums; }
+  .dr-table tr:hover td { background:#fafbfc; }
+  .dr-rank  { color:#bbb; font-weight:700; width:28px; }
+  .dr-name  { font-weight:600; }
+  .dr-res   { color:#2e7d32; font-weight:700; }
+  .dr-hld   { color:#e65100; font-weight:700; }
+  .dr-tot   { font-weight:700; }
+  .dr-dash  { color:#ccc; }
+
   @media (max-width: 640px) {
     .att-group-header { grid-template-columns: 1fr; }
     .att-group-meta { text-align: left; white-space: normal; }
@@ -199,6 +220,7 @@
       <div class="view-tabs">
         <button class="view-tab active" id="tabLogs" onclick="setView('logs')">Ticket Log</button>
         <button class="view-tab" id="tabSessions" onclick="setView('sessions')">Sessions</button>
+        <button class="view-tab" id="tabDaily" onclick="setView('daily')">Daily Report</button>
       </div>
       <div class="date-wrap">
         <input class="date-input" type="date" id="datePicker" onchange="setDateFilter(this.value)">
@@ -206,6 +228,7 @@
       </div>
       <button class="btn-export" id="exportBtn" onclick="extractCSV()">⬇ Export CSV</button>
       <button class="btn-export" id="shiftReportBtn" onclick="extractShiftReport()" style="background:#1565c0">⬇ Shift Report</button>
+      <button class="btn-export" id="dailyReportBtn" onclick="extractDailyCSV()" style="display:none">⬇ Daily CSV</button>
     </div>
   </div>
 
@@ -267,9 +290,11 @@ function setView(view) {
   activeView = view;
   document.getElementById('tabLogs').classList.toggle('active', view === 'logs');
   document.getElementById('tabSessions').classList.toggle('active', view === 'sessions');
+  document.getElementById('tabDaily').classList.toggle('active', view === 'daily');
   document.getElementById('datePicker').disabled = false;
   document.getElementById('exportBtn').style.display = view === 'logs' ? '' : 'none';
   document.getElementById('shiftReportBtn').style.display = view === 'logs' ? '' : 'none';
+  document.getElementById('dailyReportBtn').style.display = view === 'daily' ? '' : 'none';
   render();
 }
 
@@ -416,6 +441,7 @@ function renderAll(data) {
 
 function render() {
   if (activeView === 'sessions') renderSessions();
+  else if (activeView === 'daily') renderDailyReport();
   else renderLogBoard();
 }
 
@@ -939,6 +965,155 @@ function extractShiftReport() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
   a.download = `shift_report_${dateLabel}.csv`;
+  a.click();
+}
+
+// ── Daily Report (7 AM → 7 AM IST) ──────────────────────────────────────────
+const DR_IST_MS  = (5 * 60 + 30) * 60 * 1000;
+const DR_MONTHS  = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+const DR_MON_ABB = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function drParseTs(ts) {
+  const m = (ts||'').match(/(\d{1,2})\s+(\w{3})\s+(\d{4}),\s+(\d{1,2}):(\d{2}):(\d{2})\s+(am|pm)/i);
+  if (!m) return null;
+  let h = parseInt(m[4]);
+  if (m[7].toLowerCase() === 'pm' && h !== 12) h += 12;
+  if (m[7].toLowerCase() === 'am' && h === 12) h = 0;
+  return Date.UTC(+m[3], DR_MONTHS[m[2]], +m[1], h, +m[5], +m[6]) - DR_IST_MS;
+}
+
+function drWindow(dateStr) {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const startMs = Date.UTC(y, mo - 1, d, 7, 0, 0) - DR_IST_MS;
+  return { startMs, endMs: startMs + 86400000 };
+}
+
+function drDateLabel(dateStr) {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const next = new Date(Date.UTC(y, mo - 1, d + 1));
+  return `${d} ${DR_MON_ABB[mo-1]} ${y}, 7:00 AM → ${next.getUTCDate()} ${DR_MON_ABB[next.getUTCMonth()]} ${next.getUTCFullYear()}, 7:00 AM IST`;
+}
+
+function drCompute(dateStr) {
+  const { startMs, endMs } = drWindow(dateStr);
+  const seenExact   = new Set();
+  const ticketEvts  = {};
+  for (const [agentKey, entries] of Object.entries(allData)) {
+    if (!entries || typeof entries !== 'object') continue;
+    for (const entry of Object.values(entries)) {
+      const tid = String(entry.ticketId || '').trim();
+      if (!/^\d{1,5}$/.test(tid) || /^Ticket-\d+$/i.test(tid)) continue;
+      const email = entry.agentEmail || agentKey;
+      if (!email.endsWith('@ultrahuman.com')) continue;
+      const ts   = entry.timestamp || '';
+      const tsMs = drParseTs(ts);
+      if (tsMs === null || tsMs < startMs || tsMs >= endMs) continue;
+      const exact = `${email}|${tid}|${ts}`;
+      if (seenExact.has(exact)) continue;
+      seenExact.add(exact);
+      const key    = `${email}|${tid}`;
+      const status = entry.status || '';
+      if (!ticketEvts[key]) ticketEvts[key] = { everResolved: false, everOnHold: false, email };
+      if (status === 'Resolved') ticketEvts[key].everResolved = true;
+      if (status === 'On Hold')  ticketEvts[key].everOnHold  = true;
+    }
+  }
+  const agentMap = {};
+  for (const info of Object.values(ticketEvts)) {
+    const name = displayName(info.email);
+    if (!agentMap[name]) agentMap[name] = { email: info.email, resolved: 0, onhold: 0 };
+    if (info.everResolved) agentMap[name].resolved++;
+    if (info.everOnHold)   agentMap[name].onhold++;
+  }
+  return agentMap;
+}
+
+function renderDailyReport() {
+  const board   = document.getElementById('board');
+  const btn     = document.getElementById('dailyReportBtn');
+  document.getElementById('summary').style.display = 'none';
+
+  const dateStr  = activeDateFilter || todayIstKey();
+  const agentMap = drCompute(dateStr);
+
+  const emailTeam = [], chatTeam = [];
+  for (const [name, a] of Object.entries(agentMap)) {
+    const ri    = rosterInfo(a.email);
+    const entry = { name, ...a, total: a.resolved + a.onhold };
+    (ri && ri.ch === 'Email' ? emailTeam : chatTeam).push(entry);
+  }
+  const byTotal = (a, b) => b.total - a.total;
+  emailTeam.sort(byTotal);
+  chatTeam.sort(byTotal);
+
+  const all            = [...emailTeam, ...chatTeam];
+  const totalResolved  = all.reduce((s, a) => s + a.resolved, 0);
+  const totalOnhold    = all.reduce((s, a) => s + a.onhold,   0);
+  const totalSolved    = totalResolved + totalOnhold;
+
+  if (!all.length) {
+    board.innerHTML = `<div class="empty-overall"><strong style="font-size:18px;color:#ddd">No data for ${dateStr}</strong><p>No tickets found in the 7 AM → 7 AM window</p></div>`;
+    btn.classList.remove('active');
+    return;
+  }
+  btn.classList.add('active');
+
+  function buildTable(agents) {
+    const rows = agents.map((a, i) => {
+      const color = avatarColor(a.email);
+      const r = a.resolved ? `<td class="dr-res">${a.resolved}</td>` : `<td class="dr-dash">—</td>`;
+      const h = a.onhold   ? `<td class="dr-hld">${a.onhold}</td>`   : `<td class="dr-dash">—</td>`;
+      return `<tr>
+        <td class="dr-rank">${i + 1}</td>
+        <td class="dr-name"><div style="display:flex;align-items:center;gap:8px">
+          <div style="width:26px;height:26px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${initials(a.email)}</div>
+          ${a.name}</div></td>
+        ${r}${h}<td class="dr-tot">${a.total}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="dr-table-wrap"><table class="dr-table">
+      <thead><tr><th>#</th><th>Agent</th><th>Resolved</th><th>On Hold</th><th>Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
+
+  let html = `
+    <div class="dr-header-card">
+      <div style="font-size:16px;font-weight:700;color:#1a1a2e">Daily Report</div>
+      <div class="dr-date-range">${drDateLabel(dateStr)}</div>
+      <div class="dr-totals">
+        <span class="dr-chip" style="color:#1a1a2e">Solved: ${totalSolved}</span>
+        <span class="dr-sep">·</span>
+        <span class="dr-chip" style="color:#2e7d32">Resolved: ${totalResolved}</span>
+        <span class="dr-sep">·</span>
+        <span class="dr-chip" style="color:#e65100">On Hold: ${totalOnhold}</span>
+        <span class="dr-sep">·</span>
+        <span class="dr-chip" style="color:#1565c0">Agents: ${all.length}</span>
+      </div>
+    </div>`;
+  if (emailTeam.length) html += `<div class="dr-section-title">Email Team (${emailTeam.length} agents)</div>${buildTable(emailTeam)}`;
+  if (chatTeam.length)  html += `<div class="dr-section-title">Non-Email Agents (${chatTeam.length} agents)</div>${buildTable(chatTeam)}`;
+  board.innerHTML = html;
+}
+
+function extractDailyCSV() {
+  const dateStr  = activeDateFilter || todayIstKey();
+  const agentMap = drCompute(dateStr);
+  if (!Object.keys(agentMap).length) return;
+
+  const rows = [['#', 'Agent', 'Team', 'Resolved', 'On Hold', 'Total']];
+  Object.entries(agentMap)
+    .map(([name, a]) => {
+      const ri = rosterInfo(a.email);
+      return { name, ...a, team: (ri && ri.ch === 'Email') ? 'Email' : 'Chat', total: a.resolved + a.onhold };
+    })
+    .sort((a, b) => b.total - a.total)
+    .forEach((a, i) => rows.push([i + 1, a.name, a.team, a.resolved, a.onhold, a.total]));
+
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a   = document.createElement('a');
+  a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = `daily_report_${dateStr}.csv`;
   a.click();
 }
 
