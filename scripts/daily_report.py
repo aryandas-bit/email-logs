@@ -86,7 +86,10 @@ def generate_report(report_date: date, post_to_slack: bool = True):
         print("No data in Firebase — skipping.")
         sys.exit(0)
 
-    agents = {}
+    # Per (email, tid): track ever-resolved / ever-on-hold (mirrors hourly_report.py logic)
+    ticket_events = {}
+    seen_exact    = set()
+
     for agent_key, entries in data.items():
         if not isinstance(entries, dict):
             continue
@@ -111,21 +114,37 @@ def generate_report(report_date: date, post_to_slack: bool = True):
             if not isinstance(email, str) or not email.endswith('@ultrahuman.com'):
                 continue
 
-            name = email_to_name(email)
-            if name not in agents:
-                agents[name] = {'resolved': 0, 'onhold': 0, 'ts_list': [], 'first_ts': entry_dt, 'last_ts': entry_dt}
+            exact_key = f"{email}|{tid}|{ts}"
+            if exact_key in seen_exact:
+                continue
+            seen_exact.add(exact_key)
 
-            agents[name]['ts_list'].append(entry_dt)
-            if entry_dt < agents[name]['first_ts']:
-                agents[name]['first_ts'] = entry_dt
-            if entry_dt > agents[name]['last_ts']:
-                agents[name]['last_ts'] = entry_dt
-
+            key    = (email, tid)
             status = entry.get('status', '')
+            if key not in ticket_events:
+                ticket_events[key] = {'ever_resolved': False, 'ever_onhold': False, 'email': email, 'ts_list': []}
             if status == 'Resolved':
-                agents[name]['resolved'] += 1
+                ticket_events[key]['ever_resolved'] = True
             elif status == 'On Hold':
-                agents[name]['onhold'] += 1
+                ticket_events[key]['ever_onhold'] = True
+            ticket_events[key]['ts_list'].append(entry_dt)
+
+    agents = {}
+    for (email, tid), info in ticket_events.items():
+        name = email_to_name(info['email'])
+        if name not in agents:
+            first = info['ts_list'][0]
+            agents[name] = {'resolved': 0, 'onhold': 0, 'ts_list': [], 'first_ts': first, 'last_ts': first}
+        if info['ever_resolved']:
+            agents[name]['resolved'] += 1
+        if info['ever_onhold']:
+            agents[name]['onhold']   += 1
+        for t in info['ts_list']:
+            agents[name]['ts_list'].append(t)
+            if t < agents[name]['first_ts']:
+                agents[name]['first_ts'] = t
+            if t > agents[name]['last_ts']:
+                agents[name]['last_ts'] = t
 
     total_resolved = sum(a['resolved'] for a in agents.values())
     total_onhold   = sum(a['onhold']   for a in agents.values())
