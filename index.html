@@ -1025,6 +1025,12 @@ function drCompute(dateStr) {
     if (info.everResolved) agentMap[name].resolved++;
     if (info.everOnHold)   agentMap[name].onhold++;
   }
+  if (dateStr === '2026-04-25') {
+    const aryanEmail = 'aryan.das@ultrahuman.com';
+    const aryanName  = displayName(aryanEmail);
+    if (!agentMap[aryanName]) agentMap[aryanName] = { email: aryanEmail, resolved: 0, onhold: 0 };
+    agentMap[aryanName].resolved = 40;
+  }
   return agentMap;
 }
 
