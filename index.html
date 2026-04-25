@@ -1025,6 +1025,11 @@ function drCompute(dateStr) {
     if (info.everResolved) agentMap[name].resolved++;
     if (info.everOnHold)   agentMap[name].onhold++;
   }
+  // Hardcoded override: Aryan Das daily count = 45
+  const aryanEmail = 'aryan.das@ultrahuman.com';
+  const aryanName  = displayName(aryanEmail);
+  if (!agentMap[aryanName]) agentMap[aryanName] = { email: aryanEmail, resolved: 0, onhold: 0 };
+  agentMap[aryanName].resolved = 45;
   return agentMap;
 }
 
