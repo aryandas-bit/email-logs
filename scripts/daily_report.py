@@ -173,21 +173,25 @@ def generate_report(report_date: date, post_to_slack: bool = True):
         f"*Daily Report — {date_label}*",
         f"_{time_range}_",
         "",
-        f"*Tickets Solved: {total_solved}*   ·   *Resolved: {total_resolved}*   ·   *On Hold: {total_onhold}*",
+        f"*Tickets Handled: {total_solved}*   ·   *Resolved: {total_resolved}*   ·   *On Hold: {total_onhold}*",
         f"*Total Agents: {len(agents)}*",
     ]
 
     if email_agents:
-        lines += ["", f"*Email Team ({len(email_agents)} agents)*", "```"]
+        email_total = sum(a['resolved'] + a['onhold'] for _, a in email_agents)
+        email_avg   = round(email_total / len(email_agents) / 8, 1)
+        lines += ["", f"*Email Team ({len(email_agents)} agents)*   ·   *Average: {email_avg} tickets/agent/hr*", "```"]
         lines += build_table(email_agents)
         lines += ["```"]
 
     if non_email_agents:
-        lines += ["", f"*Non-Email Agents ({len(non_email_agents)} agents)*", "```"]
+        non_email_total = sum(a['resolved'] + a['onhold'] for _, a in non_email_agents)
+        non_email_avg   = round(non_email_total / len(non_email_agents) / 8, 1)
+        lines += ["", f"*Non-Email Agents ({len(non_email_agents)} agents)*   ·   *Average: {non_email_avg} tickets/agent/hr*", "```"]
         lines += build_table(non_email_agents)
         lines += ["```"]
 
-    lines += ["", "cc: <@U08HCJ99XPC> <@U05BZT4NNDS> <@U03RNK6EJDB> <!subteam^D0967C3KV0Q|cx-emailteam>"]
+    lines += ["", "cc: <@U08HCJ99XPC> <@U05BZT4NNDS> <@U03RNK6EJDB> <!subteam^S090X4WQL31|cx-emailteam>"]
 
     message = '\n'.join(lines)
     print(message)
