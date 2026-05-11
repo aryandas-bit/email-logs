@@ -1,8 +1,6 @@
 name: Daily Ticket Report
 
 on:
-  schedule:
-    - cron: '30 3 * * *'  # 03:30 UTC = 09:00 IST daily
   workflow_dispatch:
     inputs:
       date:
